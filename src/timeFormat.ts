@@ -26,11 +26,8 @@ export function formatMatchSchedule(match: MatchSchedule, timeZone?: string): st
     ...formatOptions,
     hour: "numeric",
     minute: "2-digit",
-    hour12: true,
-    timeZoneName: "shortOffset"
-  })
-    .format(kickoff)
-    .replace(/\sGMT\+0$/, " GMT");
+    hour12: true
+  }).format(kickoff);
 
   return [date, time, match.venue].filter(Boolean).join(" · ");
 }

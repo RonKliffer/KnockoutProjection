@@ -9,8 +9,8 @@ describe("time formatting", () => {
       kickoffAt: "2026-06-18T16:00:00.000Z"
     };
 
-    expect(formatMatchSchedule(match, "UTC")).toBe("Jun 18, 2026 · 4:00 PM GMT");
-    expect(formatMatchSchedule(match, "Asia/Jerusalem")).toBe("Jun 18, 2026 · 7:00 PM GMT+3");
+    expect(formatMatchSchedule(match, "UTC")).toBe("Jun 18, 2026 · 4:00 PM");
+    expect(formatMatchSchedule(match, "Asia/Jerusalem")).toBe("Jun 18, 2026 · 7:00 PM");
   });
 
   it("falls back to raw date and time when kickoff is missing", () => {
@@ -34,6 +34,6 @@ describe("time formatting", () => {
         },
         "Asia/Jerusalem"
       )
-    ).toBe("Jun 18, 2026 · 7:00 PM GMT+3");
+    ).toBe("Jun 18, 2026 · 7:00 PM");
   });
 });

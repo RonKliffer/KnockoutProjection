@@ -106,7 +106,10 @@ function render(root: HTMLElement, state: AppState, onRefresh: () => void): void
           <section class="bracket-panel">
           <div class="section-heading">
             <h2>Projected bracket</h2>
-            <p>Third-place groups: ${data.projection.thirdPlaceKey.split("").join(", ")}</p>
+            <div class="heading-note-stack">
+              <p>Third-place groups: ${data.projection.thirdPlaceKey.split("").join(", ")}</p>
+              <p>Times in your local timezone</p>
+            </div>
           </div>
           ${renderBracket(data.projection.roundOf32, data.projection.laterRounds)}
         </section>
@@ -238,7 +241,6 @@ function renderMatch(match: KnockoutMatch, side: "left" | "right" | "center" = "
     <article class="match-card ${flowClass}" data-match-number="${match.matchNumber}">
       <div class="match-meta">
         <span>Match ${match.matchNumber}</span>
-        <span>${escapeHtml(match.round)}</span>
       </div>
       <div class="team-row">
         <strong>${escapeHtml(match.resolvedHomeTeam)}</strong>
