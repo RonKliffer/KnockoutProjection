@@ -237,6 +237,7 @@ function renderMatch(match: KnockoutMatch, side: "left" | "right" | "center" = "
   const schedule = formatMatchSchedule({ ...match, venue: undefined });
   const flowClass =
     side === "center" ? "center-match" : side === "left" ? "flows-right" : "flows-left";
+  const showSlotSubtitle = match.round === "Round of 32";
   return `
     <article class="match-card ${flowClass}" data-match-number="${match.matchNumber}">
       <div class="match-meta">
@@ -244,11 +245,11 @@ function renderMatch(match: KnockoutMatch, side: "left" | "right" | "center" = "
       </div>
       <div class="team-row">
         <strong>${escapeHtml(match.resolvedHomeTeam)}</strong>
-        <small>${escapeHtml(match.homeSlot)}</small>
+        ${showSlotSubtitle ? `<small>${escapeHtml(match.homeSlot)}</small>` : ""}
       </div>
       <div class="team-row">
         <strong>${escapeHtml(match.resolvedAwayTeam)}</strong>
-        <small>${escapeHtml(match.awaySlot)}</small>
+        ${showSlotSubtitle ? `<small>${escapeHtml(match.awaySlot)}</small>` : ""}
       </div>
       ${schedule ? `<p class="venue">${escapeHtml(schedule)}</p>` : ""}
     </article>
