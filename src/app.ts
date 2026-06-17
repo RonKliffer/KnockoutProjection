@@ -7,7 +7,7 @@ import {
   parseThirdPlaceCombinations,
   parseThirdPlaceRanking
 } from "./parse";
-import { buildBracketLayout } from "./bracketLayout";
+import { buildBracketLayout, buildConnectorPath } from "./bracketLayout";
 import { buildProjection } from "./projection";
 import { buildSimulatedGroups, buildSimulatedThirdPlaceRanking } from "./simulation";
 import type { GroupLetter, GroupMatch, KnockoutMatch, TeamStanding, TournamentData, UserResult } from "./types";
@@ -25,6 +25,7 @@ interface AppState {
 
 export function mountApp(root: HTMLElement): void {
   const state: AppState = { loading: true, stale: false, userResults: {} };
+  window.addEventListener("resize", () => scheduleBracketConnectorUpdate(root));
 
   const refresh = async () => {
     state.loading = true;
@@ -133,6 +134,7 @@ function render(root: HTMLElement, state: AppState, onRefresh: () => void): void
     </main>
   `;
 
+  scheduleBracketConnectorUpdate(root);
   root.querySelector<HTMLButtonElement>(".refresh-button")?.addEventListener("click", onRefresh);
   root.querySelector<HTMLButtonElement>(".clear-all-button")?.addEventListener("click", () => {
     state.userResults = {};
@@ -174,6 +176,10 @@ function render(root: HTMLElement, state: AppState, onRefresh: () => void): void
   });
 }
 
+function scheduleBracketConnectorUpdate(root: HTMLElement): void {
+  window.requestAnimationFrame(() => updateBracketConnectors(root));
+}
+
 function applyUserResults(data: TournamentData, userResults: Record<string, UserResult>): TournamentData {
   const groups = buildSimulatedGroups(data.groups, data.groupMatches, userResults);
   const thirdPlaceRanking = buildSimulatedThirdPlaceRanking(groups, data.thirdPlaceRanking);
@@ -187,11 +193,12 @@ function applyUserResults(data: TournamentData, userResults: Record<string, User
 }
 
 function renderBracket(roundOf32: KnockoutMatch[], laterRounds: KnockoutMatch[]): string {
-  const { leftRounds, rightRounds, finals } = buildBracketLayout(roundOf32, laterRounds);
+  const { leftRounds, rightRounds, finals, connections } = buildBracketLayout(roundOf32, laterRounds);
 
   return `
     <div class="bracket-scroll">
-      <div class="bracket-stage">
+      <div class="bracket-stage" data-connections="${escapeHtml(JSON.stringify(connections))}">
+        <svg class="bracket-connectors" aria-hidden="true"></svg>
         <div class="bracket-half bracket-half-left">
           ${leftRounds.map((round, roundIndex) => renderRound(round.label, round.matches, roundIndex + 1, "left")).join("")}
         </div>
@@ -225,7 +232,7 @@ function renderMatch(match: KnockoutMatch, side: "left" | "right" | "center" = "
   const flowClass =
     side === "center" ? "center-match" : side === "left" ? "flows-right" : "flows-left";
   return `
-    <article class="match-card ${flowClass}">
+    <article class="match-card ${flowClass}" data-match-number="${match.matchNumber}">
       <div class="match-meta">
         <span>Match ${match.matchNumber}</span>
         <span>${escapeHtml(match.round)}</span>
@@ -241,6 +248,58 @@ function renderMatch(match: KnockoutMatch, side: "left" | "right" | "center" = "
       ${meta ? `<p class="venue">${escapeHtml(meta)}</p>` : ""}
     </article>
   `;
+}
+
+function updateBracketConnectors(root: HTMLElement): void {
+  root.querySelectorAll<HTMLElement>(".bracket-stage").forEach((stage) => {
+    const svg = stage.querySelector<SVGSVGElement>(".bracket-connectors");
+    if (!svg) {
+      return;
+    }
+
+    const connections = parseBracketConnections(stage.dataset.connections);
+    const stageRect = stage.getBoundingClientRect();
+    svg.setAttribute("viewBox", `0 0 ${stageRect.width} ${stageRect.height}`);
+    svg.replaceChildren(
+      ...connections.flatMap((connection) => {
+        const fromCard = stage.querySelector<HTMLElement>(`.match-card[data-match-number="${connection.fromMatchNumber}"]`);
+        const toCard = stage.querySelector<HTMLElement>(`.match-card[data-match-number="${connection.toMatchNumber}"]`);
+
+        if (!fromCard || !toCard) {
+          return [];
+        }
+
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", buildConnectorPath(relativeRect(fromCard, stageRect), relativeRect(toCard, stageRect)));
+        path.dataset.fromMatch = String(connection.fromMatchNumber);
+        path.dataset.toMatch = String(connection.toMatchNumber);
+        return [path];
+      })
+    );
+  });
+}
+
+function parseBracketConnections(value: string | undefined): Array<{ fromMatchNumber: number; toMatchNumber: number }> {
+  if (!value) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function relativeRect(element: HTMLElement, parentRect: DOMRect): { left: number; top: number; width: number; height: number } {
+  const rect = element.getBoundingClientRect();
+  return {
+    left: rect.left - parentRect.left,
+    top: rect.top - parentRect.top,
+    width: rect.width,
+    height: rect.height
+  };
 }
 
 function renderThirdPlace(data: TournamentData): string {

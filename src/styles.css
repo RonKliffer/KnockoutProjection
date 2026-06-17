@@ -152,6 +152,7 @@ h1 {
   gap: 14px;
   grid-template-columns: minmax(0, 1fr) 150px minmax(0, 1fr);
   min-width: 1180px;
+  position: relative;
 }
 
 .bracket-half {
@@ -159,6 +160,8 @@ h1 {
   gap: 14px;
   grid-template-columns: repeat(4, minmax(104px, 1fr));
   min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .round-column {
@@ -192,6 +195,26 @@ h1 {
   flex-direction: column;
   justify-content: center;
   min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.bracket-connectors {
+  height: 100%;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  position: absolute;
+  width: 100%;
+  z-index: 0;
+}
+
+.bracket-connectors path {
+  fill: none;
+  stroke: #aab9b3;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
+  stroke-width: 2;
 }
 
 .final-column h3 {
@@ -217,78 +240,6 @@ h1 {
   min-height: 100px;
   padding: 8px;
   position: relative;
-}
-
-.match-card.flows-right::after {
-  background: #aab9b3;
-  content: "";
-  height: 2px;
-  left: 100%;
-  position: absolute;
-  top: 50%;
-  width: 10px;
-}
-
-.match-card.flows-left::after {
-  background: #aab9b3;
-  content: "";
-  height: 2px;
-  position: absolute;
-  right: 100%;
-  top: 50%;
-  width: 10px;
-}
-
-.bracket-half-left .round-depth-1 .match-card:nth-child(odd)::before,
-.bracket-half-left .round-depth-2 .match-card:nth-child(odd)::before,
-.bracket-half-left .round-depth-3 .match-card:nth-child(odd)::before {
-  border-right: 2px solid #aab9b3;
-  border-top: 2px solid #aab9b3;
-  content: "";
-  height: calc(50% + 5px);
-  left: calc(100% + 10px);
-  position: absolute;
-  top: 50%;
-  width: 10px;
-}
-
-.bracket-half-left .round-depth-1 .match-card:nth-child(even)::before,
-.bracket-half-left .round-depth-2 .match-card:nth-child(even)::before,
-.bracket-half-left .round-depth-3 .match-card:nth-child(even)::before {
-  border-bottom: 2px solid #aab9b3;
-  border-right: 2px solid #aab9b3;
-  content: "";
-  height: calc(50% + 5px);
-  left: calc(100% + 10px);
-  position: absolute;
-  top: calc(-50% - 5px);
-  width: 10px;
-}
-
-.bracket-half-right .round-depth-1 .match-card:nth-child(odd)::before,
-.bracket-half-right .round-depth-2 .match-card:nth-child(odd)::before,
-.bracket-half-right .round-depth-3 .match-card:nth-child(odd)::before {
-  border-left: 2px solid #aab9b3;
-  border-top: 2px solid #aab9b3;
-  content: "";
-  height: calc(50% + 5px);
-  position: absolute;
-  right: calc(100% + 10px);
-  top: 50%;
-  width: 10px;
-}
-
-.bracket-half-right .round-depth-1 .match-card:nth-child(even)::before,
-.bracket-half-right .round-depth-2 .match-card:nth-child(even)::before,
-.bracket-half-right .round-depth-3 .match-card:nth-child(even)::before {
-  border-bottom: 2px solid #aab9b3;
-  border-left: 2px solid #aab9b3;
-  content: "";
-  height: calc(50% + 5px);
-  position: absolute;
-  right: calc(100% + 10px);
-  top: calc(-50% - 5px);
-  width: 10px;
 }
 
 .match-meta {

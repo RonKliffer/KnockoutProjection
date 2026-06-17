@@ -9,6 +9,19 @@ export interface BracketLayout {
   leftRounds: BracketRound[];
   rightRounds: BracketRound[];
   finals: KnockoutMatch[];
+  connections: BracketConnection[];
+}
+
+export interface BracketConnection {
+  fromMatchNumber: number;
+  toMatchNumber: number;
+}
+
+export interface ConnectorRect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 }
 
 const LEFT_SEMIFINAL = 101;
@@ -21,8 +34,27 @@ export function buildBracketLayout(roundOf32: KnockoutMatch[], laterRounds: Knoc
   const leftRounds = buildHalfRounds(byNumber, LEFT_SEMIFINAL).reverse();
   const rightRounds = buildHalfRounds(byNumber, RIGHT_SEMIFINAL);
   const finals = matchesByNumber(byNumber, FINALS);
+  const connections = laterRounds.flatMap((match) =>
+    feederMatchNumbers(match).map((feederNumber) => ({
+      fromMatchNumber: feederNumber,
+      toMatchNumber: match.matchNumber
+    }))
+  );
 
-  return { leftRounds, rightRounds, finals };
+  return { leftRounds, rightRounds, finals, connections };
+}
+
+export function buildConnectorPath(fromRect: ConnectorRect, toRect: ConnectorRect): string {
+  const fromCenterX = fromRect.left + fromRect.width / 2;
+  const toCenterX = toRect.left + toRect.width / 2;
+  const flowsRight = fromCenterX < toCenterX;
+  const startX = flowsRight ? fromRect.left + fromRect.width : fromRect.left;
+  const startY = fromRect.top + fromRect.height / 2;
+  const endX = flowsRight ? toRect.left : toRect.left + toRect.width;
+  const endY = toRect.top + toRect.height / 2;
+  const bendX = startX + (endX - startX) / 2;
+
+  return `M ${formatPathNumber(startX)} ${formatPathNumber(startY)} H ${formatPathNumber(bendX)} V ${formatPathNumber(endY)} H ${formatPathNumber(endX)}`;
 }
 
 function buildHalfRounds(matches: Map<number, KnockoutMatch>, semifinalNumber: number): BracketRound[] {
@@ -57,4 +89,8 @@ function feederMatchNumber(slot: string): number | undefined {
 
 function matchesByNumber(matches: Map<number, KnockoutMatch>, numbers: number[]): KnockoutMatch[] {
   return numbers.map((number) => matches.get(number)).filter(Boolean) as KnockoutMatch[];
+}
+
+function formatPathNumber(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
 }

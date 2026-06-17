@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { JSDOM } from "jsdom";
-import { buildBracketLayout } from "./bracketLayout";
+import { buildBracketLayout, buildConnectorPath } from "./bracketLayout";
 import { buildLaterRounds, parseRoundOf32 } from "./parse";
 
 describe("bracket layout", () => {
@@ -26,6 +26,41 @@ describe("bracket layout", () => {
     expect(rightRoundOf32Pairs).toContainEqual([86, 88]);
     expect(rightRoundOf32Pairs).toContainEqual([85, 87]);
     expect(rightRoundOf32Pairs).not.toContainEqual([87, 88]);
+  });
+
+  it("tracks connector relationships from winner slots", () => {
+    const layout = buildBracketLayout(parseRoundOf32(doc()), buildLaterRounds());
+    const connections = layout.connections.map((connection) => [
+      connection.fromMatchNumber,
+      connection.toMatchNumber
+    ]);
+
+    expect(connections).toContainEqual([91, 99]);
+    expect(connections).toContainEqual([92, 99]);
+    expect(connections).toContainEqual([86, 95]);
+    expect(connections).toContainEqual([88, 95]);
+    expect(connections).toContainEqual([85, 96]);
+    expect(connections).toContainEqual([87, 96]);
+    expect(connections).toContainEqual([101, 104]);
+    expect(connections).toContainEqual([102, 104]);
+    expect(connections).not.toContainEqual([101, 103]);
+    expect(connections).not.toContainEqual([102, 103]);
+  });
+
+  it("builds deterministic connector paths between card edge centers", () => {
+    expect(
+      buildConnectorPath(
+        { left: 10, top: 20, width: 100, height: 80 },
+        { left: 210, top: 120, width: 100, height: 80 }
+      )
+    ).toBe("M 110 60 H 160 V 160 H 210");
+
+    expect(
+      buildConnectorPath(
+        { left: 330, top: 120, width: 100, height: 80 },
+        { left: 140, top: 20, width: 100, height: 80 }
+      )
+    ).toBe("M 330 160 H 285 V 60 H 240");
   });
 });
 
