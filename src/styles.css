@@ -369,6 +369,13 @@ td {
   text-align: right;
 }
 
+th:first-child,
+td:first-child,
+th:nth-child(n + 3),
+td:nth-child(n + 3) {
+  text-align: center;
+}
+
 th:nth-child(2),
 td:nth-child(2) {
   max-width: 120px;

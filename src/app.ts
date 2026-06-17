@@ -342,6 +342,7 @@ function renderGroups(groups: Record<GroupLetter, TeamStanding[]>): string {
                   <tr>
                     <th>Pos</th>
                     <th>Team</th>
+                    <th>MP</th>
                     <th>Pts</th>
                     <th>GD</th>
                   </tr>
@@ -353,6 +354,7 @@ function renderGroups(groups: Record<GroupLetter, TeamStanding[]>): string {
                         <tr>
                           <td>${team.position}</td>
                           <td>${escapeHtml(team.team)}</td>
+                          <td>${team.played}</td>
                           <td>${team.points}</td>
                           <td>${formatGoalDifference(team.goalDifference)}</td>
                         </tr>
