@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { JSDOM } from "jsdom";
 import {
+  parseKickoffAt,
+  parseLaterRounds,
   parseGroupStandings,
   parseRoundOf32,
   parseThirdPlaceCombinations,
@@ -85,6 +87,98 @@ describe("Wikipedia parsers", () => {
     );
 
     expect(matches).toHaveLength(16);
-    expect(matches[0]).toMatchObject({ matchNumber: 73, homeSlot: "Runner-up Group A" });
+    expect(matches[0]).toMatchObject({
+      matchNumber: 73,
+      homeSlot: "Runner-up Group A",
+      time: "12:00 p.m. UTC-7",
+      kickoffAt: "2026-06-28T19:00:00.000Z"
+    });
+  });
+
+  it("parses kickoff instants from ASCII and Unicode UTC offsets", () => {
+    expect(parseKickoffAt("June 18, 2026", "12:00 p.m. UTC-4")).toBe("2026-06-18T16:00:00.000Z");
+    expect(parseKickoffAt("June 18, 2026", "12:00 p.m. UTC−4")).toBe("2026-06-18T16:00:00.000Z");
+  });
+
+  it("merges knockout metadata into later rounds by match number", () => {
+    const matches = parseLaterRounds(
+      doc(`
+        <h2>Quarter-finals</h2>
+        <h3>Winner Match 91 vs Winner Match 92</h3>
+        <p>July 4, 2026</p>
+        <p>3:00 p.m. UTC−4</p>
+        <p>Winner Match 91 Match 99 Winner Match 92</p>
+        <p>MetLife Stadium, East Rutherford</p>
+      `)
+    );
+    const match99 = matches.find((match) => match.matchNumber === 99);
+
+    expect(match99).toMatchObject({
+      date: "July 4, 2026",
+      time: "3:00 p.m. UTC−4",
+      kickoffAt: "2026-07-04T19:00:00.000Z",
+      venue: "MetLife Stadium, East Rutherford"
+    });
+  });
+
+  it("extracts knockout metadata from structured football boxes", () => {
+    const matches = parseRoundOf32(
+      doc(`
+        <h2>Round of 32</h2>
+        <h3>Winner Group E against best third place</h3>
+        <div class="footballbox">
+          <div class="fleft">
+            <span class="fdate">June 29, 2026</span>
+            <span class="ftime">12:00 p.m. UTC−5</span>
+          </div>
+          <table class="fevent">
+            <tr><td class="fhome">Winner Group E</td><td class="fscore">Match 74</td><td class="faway">3rd Group A/B/C/D/F</td></tr>
+          </table>
+          <div class="fright"><span class="flocation">NRG Stadium, Houston</span></div>
+        </div>
+      `)
+    );
+    const match74 = matches.find((match) => match.matchNumber === 74);
+
+    expect(match74).toMatchObject({
+      date: "June 29, 2026",
+      time: "12:00 p.m. UTC−5",
+      kickoffAt: "2026-06-29T17:00:00.000Z",
+      venue: "NRG Stadium, Houston"
+    });
+  });
+
+  it("extracts final and third-place metadata from football boxes", () => {
+    const matches = parseLaterRounds(
+      doc(`
+        <h2>Final</h2>
+        <div class="footballbox">
+          <span class="fdate">July 19, 2026</span>
+          <span class="ftime">12:00 p.m. UTC−4</span>
+          <table class="fevent">
+            <tr><td class="fhome">Winner Match 101</td><td class="fscore">Match 104</td><td class="faway">Winner Match 102</td></tr>
+          </table>
+          <span class="flocation">MetLife Stadium, East Rutherford</span>
+        </div>
+        <h2>Third place</h2>
+        <div class="footballbox">
+          <span class="fdate">July 18, 2026</span>
+          <span class="ftime">5:00 p.m. UTC−5</span>
+          <table class="fevent">
+            <tr><td class="fhome">Loser Match 101</td><td class="fscore">Match 103</td><td class="faway">Loser Match 102</td></tr>
+          </table>
+          <span class="flocation">Hard Rock Stadium, Miami Gardens</span>
+        </div>
+      `)
+    );
+
+    expect(matches.find((match) => match.matchNumber === 104)).toMatchObject({
+      kickoffAt: "2026-07-19T16:00:00.000Z",
+      venue: "MetLife Stadium, East Rutherford"
+    });
+    expect(matches.find((match) => match.matchNumber === 103)).toMatchObject({
+      kickoffAt: "2026-07-18T22:00:00.000Z",
+      venue: "Hard Rock Stadium, Miami Gardens"
+    });
   });
 });

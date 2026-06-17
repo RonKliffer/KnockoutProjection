@@ -48,6 +48,14 @@ const LATER_ROUNDS: Array<[number, string, string, string]> = [
   [104, "Final", "Winner Match 101", "Winner Match 102"]
 ];
 
+interface MatchMeta {
+  matchNumber?: number;
+  date: string;
+  time: string;
+  kickoffAt?: string;
+  venue: string;
+}
+
 export function parseHtml(html: string): Document {
   return new DOMParser().parseFromString(html, "text/html");
 }
@@ -165,9 +173,10 @@ export function parseThirdPlaceCombinations(document: Document): ThirdPlaceCombi
 }
 
 export function parseRoundOf32(document: Document): KnockoutMatch[] {
+  const metadata = parseKnockoutMetadata(document);
   const section = findHeading(document, "Round of 32");
   if (!section) {
-    return fallbackRoundOf32();
+    return fallbackRoundOf32(metadata);
   }
 
   const matches: KnockoutMatch[] = [];
@@ -186,6 +195,7 @@ export function parseRoundOf32(document: Document): KnockoutMatch[] {
           round: "Round of 32",
           date: meta.date,
           time: meta.time,
+          kickoffAt: meta.kickoffAt,
           venue: meta.venue,
           homeSlot: slots[0],
           awaySlot: slots[1],
@@ -200,12 +210,13 @@ export function parseRoundOf32(document: Document): KnockoutMatch[] {
 
   const byNumber = new Map(matches.map((match) => [match.matchNumber, match]));
   return ROUND_OF_32_SCHEDULE.map(([number, homeSlot, awaySlot]) => {
-    const parsed = byNumber.get(number);
+    const parsed = byNumber.get(number) ?? metadata.get(number);
     return {
       matchNumber: number,
       round: "Round of 32",
       date: parsed?.date ?? "",
       time: parsed?.time ?? "",
+      kickoffAt: parsed?.kickoffAt,
       venue: parsed?.venue ?? "",
       homeSlot,
       awaySlot,
@@ -215,18 +226,54 @@ export function parseRoundOf32(document: Document): KnockoutMatch[] {
   });
 }
 
-export function buildLaterRounds(): KnockoutMatch[] {
+export function buildLaterRounds(metadata = new Map<number, MatchMeta>()): KnockoutMatch[] {
   return LATER_ROUNDS.map(([matchNumber, round, homeSlot, awaySlot]) => ({
+    ...matchMetadataFields(metadata.get(matchNumber)),
     matchNumber,
     round,
-    date: "",
-    time: "",
-    venue: "",
     homeSlot,
     awaySlot,
     resolvedHomeTeam: homeSlot,
     resolvedAwayTeam: awaySlot
   }));
+}
+
+export function parseLaterRounds(document: Document): KnockoutMatch[] {
+  return buildLaterRounds(parseKnockoutMetadata(document));
+}
+
+export function parseKickoffAt(date: string, time: string): string | undefined {
+  const dateMatch = date.match(/^(June|July)\s+(\d{1,2}),\s+(2026)$/i);
+  const timeMatch = time
+    .replace(/\u2212/g, "-")
+    .match(/(\d{1,2}):(\d{2})\s*([ap])\.?m\.?.*?UTC\s*([+-]\d{1,2})(?::?(\d{2}))?/i);
+
+  if (!dateMatch || !timeMatch) {
+    return undefined;
+  }
+
+  const month = monthIndex(dateMatch[1]);
+  const day = Number(dateMatch[2]);
+  const year = Number(dateMatch[3]);
+  let hour = Number(timeMatch[1]);
+  const minute = Number(timeMatch[2]);
+  const period = timeMatch[3].toLowerCase();
+  const offsetHours = Number(timeMatch[4]);
+  const offsetMinutes = Number(timeMatch[5] ?? "0");
+
+  if (month === undefined) {
+    return undefined;
+  }
+
+  if (period === "p" && hour !== 12) {
+    hour += 12;
+  } else if (period === "a" && hour === 12) {
+    hour = 0;
+  }
+
+  const offsetSign = offsetHours < 0 ? -1 : 1;
+  const totalOffsetMinutes = offsetHours * 60 + offsetSign * offsetMinutes;
+  return new Date(Date.UTC(year, month, day, hour, minute) - totalOffsetMinutes * 60 * 1000).toISOString();
 }
 
 export function extractSourceUpdatedText(document: Document): string | undefined {
@@ -267,12 +314,16 @@ function parseFootballBox(box: Element, group: GroupLetter, index: number): Grou
     return null;
   }
 
+  const date = text(box.querySelector(".fdate") ?? box).replace(/\s+\(.*\)$/, "");
+  const time = text(box.querySelector(".ftime") ?? box);
+
   return {
     id: `${group}-${index + 1}`,
     group,
     matchNumber,
-    date: text(box.querySelector(".fdate") ?? box).replace(/\s+\(.*\)$/, ""),
-    time: text(box.querySelector(".ftime") ?? box),
+    date,
+    time,
+    kickoffAt: parseKickoffAt(date, time),
     venue: optionalText(box.querySelector(".flocation") ?? box.querySelector(".fright")),
     homeTeam,
     awayTeam,
@@ -312,21 +363,72 @@ function nextWikitable(start: Element): HTMLTableElement | null {
   return null;
 }
 
-function extractMatchMeta(heading: Element): { matchNumber?: number; date: string; time: string; venue: string } {
+function parseKnockoutMetadata(document: Document): Map<number, MatchMeta> {
+  const metadata = new Map<number, MatchMeta>();
+
+  for (const meta of Array.from(document.querySelectorAll(".footballbox"))
+    .map(parseFootballBoxMeta)
+    .filter((meta): meta is MatchMeta & { matchNumber: number } => Boolean(meta.matchNumber))) {
+    metadata.set(meta.matchNumber, meta);
+  }
+
+  for (const meta of Array.from(document.querySelectorAll("h3, .mw-heading"))
+      .filter((heading) => /\s+vs\s+/i.test(text(heading)))
+      .map((heading) => extractMatchMeta(heading))
+      .filter((meta): meta is MatchMeta & { matchNumber: number } => Boolean(meta.matchNumber))) {
+    if (!metadata.has(meta.matchNumber)) {
+      metadata.set(meta.matchNumber, meta);
+    }
+  }
+
+  return metadata;
+}
+
+function parseFootballBoxMeta(box: Element): MatchMeta {
+  const date = text(box.querySelector(".fdate") ?? box).replace(/\s+\(.*\)$/, "");
+  const time = text(box.querySelector(".ftime") ?? box);
+  const scoreText = text(box.querySelector(".fscore") ?? box);
+
+  return {
+    matchNumber: Number(scoreText.match(/Match\s+(\d+)/i)?.[1]) || undefined,
+    date,
+    time,
+    kickoffAt: parseKickoffAt(date, time),
+    venue: optionalText(box.querySelector(".flocation") ?? box.querySelector(".fright"))
+  };
+}
+
+function extractMatchMeta(heading: Element): MatchMeta {
   const details: string[] = [];
+  let structuredDate = "";
+  let structuredTime = "";
+  let structuredVenue = "";
   let current = heading.nextElementSibling;
 
-  while (current && !/^H[23]$/i.test(current.tagName)) {
-    details.push(text(current));
+  while (current && !/^H[23]$/i.test(current.tagName) && !current.matches(".mw-heading")) {
+    if (current.matches(".footballbox")) {
+      structuredDate ||= text(current.querySelector(".fdate") ?? current).replace(/\s+\(.*\)$/, "");
+      structuredTime ||= text(current.querySelector(".ftime") ?? current);
+      structuredVenue ||= optionalText(current.querySelector(".flocation") ?? current.querySelector(".fright"));
+    }
+
+    if (!/^STYLE$/i.test(current.tagName)) {
+      details.push(text(current));
+    }
+
     current = current.nextElementSibling;
   }
 
   const compact = details.join(" ").replace(/\s+/g, " ").trim();
+  const date = structuredDate || compact.match(/(?:June|July)\s+\d{1,2},\s+2026/)?.[0] || "";
+  const time = structuredTime || compact.match(/\d{1,2}:\d{2}\s+[ap]\.m\.\s+UTC\s*[+\-\u2212]\d+(?::?\d{2})?/i)?.[0] || "";
+
   return {
-    matchNumber: Number(compact.match(/Match\s+(\d+)/i)?.[1]) || undefined,
-    date: compact.match(/(?:June|July)\s+\d{1,2},\s+2026/)?.[0] ?? "",
-    time: compact.match(/\d{1,2}:\d{2}\s+[ap]\.m\./i)?.[0] ?? "",
-    venue: compact.match(/(?:p\.m\.\s+UTC[+-]\d+\s+)(.+?)(?=$|###|Winner|Runner-up|3rd|\[)/i)?.[1]?.trim() ?? ""
+    matchNumber: extractFixtureMatchNumber(heading, compact),
+    date,
+    time,
+    kickoffAt: parseKickoffAt(date, time),
+    venue: structuredVenue || extractVenue(details)
   };
 }
 
@@ -334,18 +436,50 @@ function inferMatchNumber(homeSlot: string, awaySlot: string): number | undefine
   return ROUND_OF_32_SCHEDULE.find(([, home, away]) => home === homeSlot && away === awaySlot)?.[0];
 }
 
-function fallbackRoundOf32(): KnockoutMatch[] {
+function extractFixtureMatchNumber(heading: Element, details: string): number | undefined {
+  const headingNumbers = new Set(matchNumbers(text(heading)));
+  return matchNumbers(details).find((number) => !headingNumbers.has(number)) ?? matchNumbers(details)[0];
+}
+
+function matchNumbers(value: string): number[] {
+  return Array.from(value.matchAll(/Match\s+(\d+)/gi)).map((match) => Number(match[1]));
+}
+
+function extractVenue(details: string[]): string {
+  return (
+    details.find((detail) => {
+      return (
+        detail &&
+        !/(?:June|July)\s+\d{1,2},\s+2026/i.test(detail) &&
+        !/\d{1,2}:\d{2}\s+[ap]\.m\./i.test(detail) &&
+        !/\b(?:Winner|Loser|Runner-up|3rd)\b/i.test(detail) &&
+        !/Match\s+\d+/i.test(detail) &&
+        !/[\{\}]/.test(detail) &&
+        !/\[edit\]/i.test(detail)
+      );
+    }) ?? ""
+  );
+}
+
+function fallbackRoundOf32(metadata = new Map<number, MatchMeta>()): KnockoutMatch[] {
   return ROUND_OF_32_SCHEDULE.map(([matchNumber, homeSlot, awaySlot]) => ({
+    ...matchMetadataFields(metadata.get(matchNumber)),
     matchNumber,
     round: "Round of 32",
-    date: "",
-    time: "",
-    venue: "",
     homeSlot,
     awaySlot,
     resolvedHomeTeam: homeSlot,
     resolvedAwayTeam: awaySlot
   }));
+}
+
+function matchMetadataFields(meta: MatchMeta | undefined): Pick<KnockoutMatch, "date" | "time" | "kickoffAt" | "venue"> {
+  return {
+    date: meta?.date ?? "",
+    time: meta?.time ?? "",
+    kickoffAt: meta?.kickoffAt,
+    venue: meta?.venue ?? ""
+  };
 }
 
 function cellTexts(row: Element): string[] {
@@ -386,4 +520,9 @@ function toNumber(value: string | undefined): number {
 
 function parseGoalDifference(value: string | undefined): number {
   return Number((value ?? "0").replace("+", "").replace("−", "-").replace(/[^\d-]/g, "")) || 0;
+}
+
+function monthIndex(month: string): number | undefined {
+  const months: Record<string, number> = { june: 5, july: 6 };
+  return months[month.toLowerCase()];
 }

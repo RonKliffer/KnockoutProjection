@@ -12,7 +12,8 @@ export function buildProjection(
   groups: Record<GroupLetter, TeamStanding[]>,
   thirdPlaceRanking: ThirdPlaceRanking[],
   combinations: ThirdPlaceCombination[],
-  roundOf32: KnockoutMatch[]
+  roundOf32: KnockoutMatch[],
+  laterRounds: KnockoutMatch[] = buildLaterRounds()
 ): BracketProjection {
   const qualifiedGroups = thirdPlaceRanking
     .filter((entry) => entry.qualified)
@@ -31,7 +32,7 @@ export function buildProjection(
       resolvedHomeTeam: resolveSlot(match.homeSlot, groups, thirdPlaceRanking, combination),
       resolvedAwayTeam: resolveSlot(match.awaySlot, groups, thirdPlaceRanking, combination)
     })),
-    laterRounds: buildLaterRounds(),
+    laterRounds,
     thirdPlaceKey: qualifiedGroups
   };
 }

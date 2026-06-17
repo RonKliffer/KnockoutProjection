@@ -3,6 +3,7 @@ import {
   parseGroupMatches,
   parseGroupStandings,
   parseHtml,
+  parseLaterRounds,
   parseRoundOf32,
   parseThirdPlaceCombinations,
   parseThirdPlaceRanking
@@ -10,6 +11,7 @@ import {
 import { buildBracketLayout, buildConnectorPath } from "./bracketLayout";
 import { buildProjection } from "./projection";
 import { buildSimulatedGroups, buildSimulatedThirdPlaceRanking } from "./simulation";
+import { formatMatchSchedule } from "./timeFormat";
 import type { GroupLetter, GroupMatch, KnockoutMatch, TeamStanding, TournamentData, UserResult } from "./types";
 import { fetchWikipediaHtml } from "./wikipedia";
 
@@ -62,6 +64,7 @@ export async function loadTournamentData(): Promise<TournamentData> {
   const thirdPlaceRanking = parseThirdPlaceRanking(groupDocument);
   const combinations = parseThirdPlaceCombinations(knockoutDocument);
   const roundOf32 = parseRoundOf32(knockoutDocument);
+  const laterRounds = parseLaterRounds(knockoutDocument);
 
   return {
     groups,
@@ -69,7 +72,7 @@ export async function loadTournamentData(): Promise<TournamentData> {
     knockoutCombinations: combinations,
     roundOf32,
     thirdPlaceRanking,
-    projection: buildProjection(groups, thirdPlaceRanking, combinations, roundOf32),
+    projection: buildProjection(groups, thirdPlaceRanking, combinations, roundOf32, laterRounds),
     fetchedAt: new Date(),
     sourceUpdatedText: extractSourceUpdatedText(groupDocument)
   };
@@ -188,7 +191,7 @@ function applyUserResults(data: TournamentData, userResults: Record<string, User
     ...data,
     groups,
     thirdPlaceRanking,
-    projection: buildProjection(groups, thirdPlaceRanking, data.knockoutCombinations, data.roundOf32)
+    projection: buildProjection(groups, thirdPlaceRanking, data.knockoutCombinations, data.roundOf32, data.projection.laterRounds)
   };
 }
 
@@ -228,7 +231,7 @@ function renderRound(label: string, matches: KnockoutMatch[], depth: number, sid
 }
 
 function renderMatch(match: KnockoutMatch, side: "left" | "right" | "center" = "left"): string {
-  const meta = [match.date, match.time, match.venue].filter(Boolean).join(" · ");
+  const schedule = formatMatchSchedule({ ...match, venue: undefined });
   const flowClass =
     side === "center" ? "center-match" : side === "left" ? "flows-right" : "flows-left";
   return `
@@ -245,7 +248,7 @@ function renderMatch(match: KnockoutMatch, side: "left" | "right" | "center" = "
         <strong>${escapeHtml(match.resolvedAwayTeam)}</strong>
         <small>${escapeHtml(match.awaySlot)}</small>
       </div>
-      ${meta ? `<p class="venue">${escapeHtml(meta)}</p>` : ""}
+      ${schedule ? `<p class="venue">${escapeHtml(schedule)}</p>` : ""}
     </article>
   `;
 }
@@ -415,7 +418,7 @@ function renderGroupMatch(match: GroupMatch, userResult?: UserResult): string {
         }
         <span class="result-team away">${escapeHtml(match.awayTeam)}</span>
       </div>
-      ${!match.played ? `<p class="fixture-time">${escapeHtml([match.date, match.time].filter(Boolean).join(" · "))}</p>` : ""}
+      ${!match.played ? `<p class="fixture-time">${escapeHtml(formatMatchSchedule({ ...match, venue: undefined }))}</p>` : ""}
     </article>
   `;
 }

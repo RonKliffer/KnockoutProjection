@@ -48,6 +48,7 @@ export interface GroupMatch {
   matchNumber?: number;
   date: string;
   time: string;
+  kickoffAt?: string;
   venue: string;
   homeTeam: string;
   awayTeam: string;
@@ -66,6 +67,7 @@ export interface KnockoutMatch {
   round: string;
   date: string;
   time: string;
+  kickoffAt?: string;
   venue: string;
   homeSlot: string;
   awaySlot: string;
