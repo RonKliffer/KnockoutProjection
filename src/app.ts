@@ -321,6 +321,7 @@ function renderThirdPlace(data: TournamentData): string {
                 <strong>${escapeHtml(entry.team)}</strong>
                 <small>Group ${entry.group}</small>
                 <b>${entry.points} pts</b>
+                <b>${formatGoalDifference(entry.goalDifference)}</b>
               </div>
             `
           )
