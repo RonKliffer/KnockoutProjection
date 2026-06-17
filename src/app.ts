@@ -7,6 +7,7 @@ import {
   parseThirdPlaceCombinations,
   parseThirdPlaceRanking
 } from "./parse";
+import { buildBracketLayout } from "./bracketLayout";
 import { buildProjection } from "./projection";
 import { buildSimulatedGroups, buildSimulatedThirdPlaceRanking } from "./simulation";
 import type { GroupLetter, GroupMatch, KnockoutMatch, TeamStanding, TournamentData, UserResult } from "./types";
@@ -186,26 +187,13 @@ function applyUserResults(data: TournamentData, userResults: Record<string, User
 }
 
 function renderBracket(roundOf32: KnockoutMatch[], laterRounds: KnockoutMatch[]): string {
-  const byNumber = new Map([...roundOf32, ...laterRounds].map((match) => [match.matchNumber, match]));
-  const leftRounds = [
-    ["Round of 32", matchesByNumber(byNumber, [73, 74, 75, 76, 77, 78, 79, 80])],
-    ["Round of 16", matchesByNumber(byNumber, [89, 90, 91, 92])],
-    ["Quarterfinals", matchesByNumber(byNumber, [97, 99])],
-    ["Semifinal", matchesByNumber(byNumber, [101])]
-  ] as const;
-  const rightRounds = [
-    ["Semifinal", matchesByNumber(byNumber, [102])],
-    ["Quarterfinals", matchesByNumber(byNumber, [98, 100])],
-    ["Round of 16", matchesByNumber(byNumber, [93, 94, 95, 96])],
-    ["Round of 32", matchesByNumber(byNumber, [81, 82, 83, 84, 85, 86, 87, 88])]
-  ] as const;
-  const finals = matchesByNumber(byNumber, [104, 103]);
+  const { leftRounds, rightRounds, finals } = buildBracketLayout(roundOf32, laterRounds);
 
   return `
     <div class="bracket-scroll">
       <div class="bracket-stage">
         <div class="bracket-half bracket-half-left">
-          ${leftRounds.map(([label, matches], roundIndex) => renderRound(label, matches, roundIndex + 1, "left")).join("")}
+          ${leftRounds.map((round, roundIndex) => renderRound(round.label, round.matches, roundIndex + 1, "left")).join("")}
         </div>
         <section class="final-column">
           <h3>Final</h3>
@@ -214,7 +202,7 @@ function renderBracket(roundOf32: KnockoutMatch[], laterRounds: KnockoutMatch[])
           </div>
         </section>
         <div class="bracket-half bracket-half-right">
-          ${rightRounds.map(([label, matches], roundIndex) => renderRound(label, matches, 4 - roundIndex, "right")).join("")}
+          ${rightRounds.map((round, roundIndex) => renderRound(round.label, round.matches, 4 - roundIndex, "right")).join("")}
         </div>
       </div>
     </div>
@@ -253,10 +241,6 @@ function renderMatch(match: KnockoutMatch, side: "left" | "right" | "center" = "
       ${meta ? `<p class="venue">${escapeHtml(meta)}</p>` : ""}
     </article>
   `;
-}
-
-function matchesByNumber(matches: Map<number, KnockoutMatch>, numbers: number[]): KnockoutMatch[] {
-  return numbers.map((number) => matches.get(number)).filter(Boolean) as KnockoutMatch[];
 }
 
 function renderThirdPlace(data: TournamentData): string {
