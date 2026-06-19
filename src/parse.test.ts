@@ -3,11 +3,13 @@ import { JSDOM } from "jsdom";
 import {
   parseKickoffAt,
   parseLaterRounds,
+  parseGroupMatches,
   parseGroupStandings,
   parseRoundOf32,
   parseThirdPlaceCombinations,
   parseThirdPlaceRanking
 } from "./parse";
+import { buildSimulatedGroups } from "./simulation";
 
 function doc(html: string): Document {
   return new JSDOM(html).window.document;
@@ -49,6 +51,72 @@ describe("Wikipedia parsers", () => {
     const groups = parseGroupStandings(doc(groupsHtml));
     expect(groups.A[0].team).toBe("A Winner");
     expect(groups.L[2].team).toBe("L Third");
+  });
+
+  it("normalizes standings status markers to match football box team names", () => {
+    const document = doc(`
+      <h3>Group A</h3>
+      <table class="wikitable">
+        <tbody>
+          <tr><th>Pos</th><th>Team</th><th>Pld</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th></tr>
+          <tr><td>1</td><td>Mexico (H, Q)</td><td>2</td><td>2</td><td>0</td><td>0</td><td>3</td><td>0</td><td>+3</td><td>6</td></tr>
+          <tr><td>2</td><td>South Korea</td><td>2</td><td>1</td><td>0</td><td>1</td><td>2</td><td>2</td><td>0</td><td>3</td></tr>
+          <tr><td>3</td><td>Czech Republic</td><td>2</td><td>0</td><td>1</td><td>1</td><td>2</td><td>3</td><td>-1</td><td>1</td></tr>
+          <tr><td>4</td><td>South Africa</td><td>2</td><td>0</td><td>1</td><td>1</td><td>1</td><td>3</td><td>-2</td><td>1</td></tr>
+        </tbody>
+      </table>
+      <div class="footballbox">
+        <span class="fdate">June 11, 2026</span>
+        <span class="ftime">8:00 p.m. UTC−6</span>
+        <table class="fevent">
+          <tr>
+            <td class="fhome">Mexico</td>
+            <td class="fscore">2–0</td>
+            <td class="faway">South Africa</td>
+          </tr>
+        </table>
+      </div>
+      <div class="footballbox">
+        <span class="fdate">June 18, 2026</span>
+        <span class="ftime">8:00 p.m. UTC−6</span>
+        <table class="fevent">
+          <tr>
+            <td class="fhome">Mexico</td>
+            <td class="fscore">1–0</td>
+            <td class="faway">South Korea</td>
+          </tr>
+        </table>
+      </div>
+      ${["B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]
+        .map(
+          (group) => `
+            <h3>Group ${group}</h3>
+            <table class="wikitable">
+              <tbody>
+                <tr><th>Pos</th><th>Team</th><th>Pld</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th></tr>
+                <tr><td>1</td><td>${group} Winner</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+                <tr><td>2</td><td>${group} Runner</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+                <tr><td>3</td><td>${group} Third</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+                <tr><td>4</td><td>${group} Fourth</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+              </tbody>
+            </table>
+          `
+        )
+        .join("")}
+    `);
+    const groups = parseGroupStandings(document);
+    const matches = parseGroupMatches(document);
+    const simulated = buildSimulatedGroups(groups, matches, {});
+    const mexico = simulated.A.find((team) => team.team === "Mexico");
+
+    expect(groups.A[0].team).toBe("Mexico");
+    expect(matches.A[0].homeTeam).toBe("Mexico");
+    expect(mexico).toMatchObject({
+      played: 2,
+      points: 6,
+      goalsFor: 3,
+      goalsAgainst: 0
+    });
   });
 
   it("extracts third-place ranking", () => {

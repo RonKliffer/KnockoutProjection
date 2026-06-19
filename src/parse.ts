@@ -489,7 +489,7 @@ function cellTexts(row: Element): string[] {
 function cleanTeamName(value: string): string {
   return value
     .replace(/\[[^\]]+\]/g, "")
-    .replace(/\s+\([A-Z]\)$/g, "")
+    .replace(/\s+\([A-Z](?:\s*,\s*[A-Z])*\)$/g, "")
     .replace(/\s+based on ranking$/i, "")
     .trim();
 }
