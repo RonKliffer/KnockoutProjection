@@ -7,7 +7,7 @@ describe("bracket layout", () => {
   it("orders bracket columns by feeder relationships", () => {
     const layout = buildBracketLayout(parseRoundOf32(doc()), buildLaterRounds());
 
-    expect(matchNumbers(layout.leftRounds[0].matches)).toEqual([73, 75, 74, 77, 83, 84, 81, 82]);
+    expect(matchNumbers(layout.leftRounds[0].matches)).toEqual([74, 77, 73, 75, 83, 84, 81, 82]);
     expect(matchNumbers(layout.leftRounds[1].matches)).toEqual([89, 90, 93, 94]);
     expect(matchNumbers(layout.leftRounds[2].matches)).toEqual([97, 98]);
     expect(matchNumbers(layout.leftRounds[3].matches)).toEqual([101]);
@@ -35,6 +35,10 @@ describe("bracket layout", () => {
       connection.toMatchNumber
     ]);
 
+    expect(connections).toContainEqual([74, 89]);
+    expect(connections).toContainEqual([77, 89]);
+    expect(connections).toContainEqual([73, 90]);
+    expect(connections).toContainEqual([75, 90]);
     expect(connections).toContainEqual([91, 99]);
     expect(connections).toContainEqual([92, 99]);
     expect(connections).toContainEqual([86, 95]);
@@ -43,6 +47,10 @@ describe("bracket layout", () => {
     expect(connections).toContainEqual([87, 96]);
     expect(connections).toContainEqual([101, 104]);
     expect(connections).toContainEqual([102, 104]);
+    expect(connections).not.toContainEqual([73, 89]);
+    expect(connections).not.toContainEqual([75, 89]);
+    expect(connections).not.toContainEqual([74, 90]);
+    expect(connections).not.toContainEqual([77, 90]);
     expect(connections).not.toContainEqual([101, 103]);
     expect(connections).not.toContainEqual([102, 103]);
   });

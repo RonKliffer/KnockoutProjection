@@ -189,6 +189,23 @@ describe("Wikipedia parsers", () => {
     });
   });
 
+  it("builds the expected round-of-16 feeder mapping", () => {
+    const roundOf16 = parseLaterRounds(doc(""))
+      .filter((match) => match.round === "Round of 16")
+      .map((match) => [match.matchNumber, match.homeSlot, match.awaySlot]);
+
+    expect(roundOf16).toEqual([
+      [89, "Winner Match 74", "Winner Match 77"],
+      [90, "Winner Match 73", "Winner Match 75"],
+      [91, "Winner Match 76", "Winner Match 78"],
+      [92, "Winner Match 79", "Winner Match 80"],
+      [93, "Winner Match 83", "Winner Match 84"],
+      [94, "Winner Match 81", "Winner Match 82"],
+      [95, "Winner Match 86", "Winner Match 88"],
+      [96, "Winner Match 85", "Winner Match 87"]
+    ]);
+  });
+
   it("extracts knockout metadata from structured football boxes", () => {
     const matches = parseRoundOf32(
       doc(`

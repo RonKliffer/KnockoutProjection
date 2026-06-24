@@ -30,8 +30,8 @@ const ROUND_OF_32_SCHEDULE: Array<[number, string, string]> = [
 ];
 
 const LATER_ROUNDS: Array<[number, string, string, string]> = [
-  [89, "Round of 16", "Winner Match 73", "Winner Match 75"],
-  [90, "Round of 16", "Winner Match 74", "Winner Match 77"],
+  [89, "Round of 16", "Winner Match 74", "Winner Match 77"],
+  [90, "Round of 16", "Winner Match 73", "Winner Match 75"],
   [91, "Round of 16", "Winner Match 76", "Winner Match 78"],
   [92, "Round of 16", "Winner Match 79", "Winner Match 80"],
   [93, "Round of 16", "Winner Match 83", "Winner Match 84"],
