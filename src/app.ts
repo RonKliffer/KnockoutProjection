@@ -30,7 +30,10 @@ export function mountApp(root: HTMLElement): void {
   const state: AppState = { loading: true, stale: false, userResults: {} };
   window.addEventListener("resize", () => scheduleBracketConnectorUpdate(root));
 
-  const refresh = async () => {
+  const refresh = async (options: { clearUserResults?: boolean } = {}) => {
+    if (options.clearUserResults) {
+      state.userResults = {};
+    }
     state.loading = true;
     state.error = undefined;
     render(root, state, refresh);
@@ -79,7 +82,7 @@ export async function loadTournamentData(): Promise<TournamentData> {
   };
 }
 
-function render(root: HTMLElement, state: AppState, onRefresh: () => void): void {
+function render(root: HTMLElement, state: AppState, onRefresh: (options?: { clearUserResults?: boolean }) => void): void {
   const data = state.data ? applyUserResults(state.data, state.userResults) : undefined;
 
   root.innerHTML = `
@@ -142,7 +145,7 @@ function render(root: HTMLElement, state: AppState, onRefresh: () => void): void
   `;
 
   scheduleBracketConnectorUpdate(root);
-  root.querySelector<HTMLButtonElement>(".refresh-button")?.addEventListener("click", onRefresh);
+  root.querySelector<HTMLButtonElement>(".refresh-button")?.addEventListener("click", () => onRefresh({ clearUserResults: true }));
   root.querySelector<HTMLButtonElement>(".clear-all-button")?.addEventListener("click", () => {
     state.userResults = {};
     render(root, state, onRefresh);
