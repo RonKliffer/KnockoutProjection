@@ -7,6 +7,7 @@ const TEAM_COUNTRY_CODES: Record<string, string> = {
   "bosnia and herzegovina": "BA",
   "brazil": "BR",
   "canada": "CA",
+  "cape verde": "CV",
   "colombia": "CO",
   "costa rica": "CR",
   "croatia": "HR",
@@ -23,6 +24,7 @@ const TEAM_COUNTRY_CODES: Record<string, string> = {
   "germany": "DE",
   "ghana": "GH",
   "haiti": "HT",
+  "iran": "IR",
   "iraq": "IQ",
   "ivory coast": "CI",
   "cote d ivoire": "CI",
@@ -52,10 +54,21 @@ const TEAM_COUNTRY_CODES: Record<string, string> = {
   "uzbekistan": "UZ"
 };
 
+const TEAM_FLAG_OVERRIDES: Record<string, string> = {
+  "england": subdivisionFlagEmoji("gbeng"),
+  "scotland": subdivisionFlagEmoji("gbsct"),
+  "wales": subdivisionFlagEmoji("gbwls")
+};
+
 export function teamFlag(teamName: string): string {
   const normalized = normalizeTeamName(teamName);
   if (!normalized || isPlaceholderTeam(normalized)) {
     return "";
+  }
+
+  const flagOverride = TEAM_FLAG_OVERRIDES[normalized];
+  if (flagOverride) {
+    return flagOverride;
   }
 
   const countryCode = TEAM_COUNTRY_CODES[normalized];
@@ -84,4 +97,12 @@ function countryCodeToFlag(countryCode: string): string {
     .split("")
     .map((letter) => String.fromCodePoint(0x1f1e6 + letter.charCodeAt(0) - 65))
     .join("");
+}
+
+function subdivisionFlagEmoji(subdivisionCode: string): string {
+  return String.fromCodePoint(
+    0x1f3f4,
+    ...subdivisionCode.toLowerCase().split("").map((letter) => 0xe0000 + letter.charCodeAt(0)),
+    0xe007f
+  );
 }
