@@ -270,8 +270,23 @@ h1 {
 }
 
 .team-row strong {
+  align-items: center;
+  display: flex;
   font-size: 0.78rem;
+  gap: 6px;
   line-height: 1.15;
+  min-width: 0;
+}
+
+.team-row strong span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.team-flag {
+  flex: 0 0 auto;
+  font-size: 0.9em;
+  line-height: 1;
 }
 
 .team-row small {

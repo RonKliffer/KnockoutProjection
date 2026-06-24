@@ -11,6 +11,7 @@ import {
 import { buildBracketLayout, buildConnectorPath } from "./bracketLayout";
 import { buildProjection } from "./projection";
 import { buildSimulatedGroups, buildSimulatedThirdPlaceRanking } from "./simulation";
+import { teamFlag } from "./flags";
 import { formatMatchSchedule } from "./timeFormat";
 import type { GroupLetter, GroupMatch, KnockoutMatch, TeamStanding, TournamentData, UserResult } from "./types";
 import { fetchWikipediaHtml } from "./wikipedia";
@@ -244,16 +245,21 @@ function renderMatch(match: KnockoutMatch, side: "left" | "right" | "center" = "
         <span>Match ${match.matchNumber}</span>
       </div>
       <div class="team-row">
-        <strong>${escapeHtml(match.resolvedHomeTeam)}</strong>
+        <strong>${renderBracketTeamName(match.resolvedHomeTeam)}</strong>
         ${showSlotSubtitle ? `<small>${escapeHtml(match.homeSlot)}</small>` : ""}
       </div>
       <div class="team-row">
-        <strong>${escapeHtml(match.resolvedAwayTeam)}</strong>
+        <strong>${renderBracketTeamName(match.resolvedAwayTeam)}</strong>
         ${showSlotSubtitle ? `<small>${escapeHtml(match.awaySlot)}</small>` : ""}
       </div>
       ${schedule ? `<p class="venue">${escapeHtml(schedule)}</p>` : ""}
     </article>
   `;
+}
+
+function renderBracketTeamName(teamName: string): string {
+  const flag = teamFlag(teamName);
+  return `${flag ? `<span class="team-flag" aria-hidden="true">${flag}</span>` : ""}<span>${escapeHtml(teamName)}</span>`;
 }
 
 function updateBracketConnectors(root: HTMLElement): void {
