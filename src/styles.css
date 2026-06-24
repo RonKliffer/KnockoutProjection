@@ -320,9 +320,21 @@ h1 {
   border-radius: 6px;
   display: grid;
   gap: 8px;
-  grid-template-columns: 22px minmax(0, 1fr) 58px 46px 34px;
+  grid-template-columns: 22px minmax(0, 1fr) 58px 28px 34px 34px;
   min-height: 30px;
   padding: 4px 6px;
+}
+
+.third-row-header {
+  color: #6f7976;
+  font-size: 0.68rem;
+  font-weight: 800;
+  min-height: 20px;
+  text-transform: uppercase;
+}
+
+.third-row-header span:nth-child(n+4) {
+  text-align: right;
 }
 
 .third-row.qualified {

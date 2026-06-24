@@ -313,6 +313,14 @@ function renderThirdPlace(data: TournamentData): string {
     <section class="third-place-block">
       <h3>Third-place ranking</h3>
       <div class="third-place-list">
+        <div class="third-row third-row-header">
+          <span></span>
+          <span>Team</span>
+          <span>Group</span>
+          <span>MP</span>
+          <span>Pts</span>
+          <span>GD</span>
+        </div>
         ${data.thirdPlaceRanking
           .map(
             (entry) => `
@@ -320,7 +328,8 @@ function renderThirdPlace(data: TournamentData): string {
                 <span>${entry.rank}</span>
                 <strong>${escapeHtml(entry.team)}</strong>
                 <small>Group ${entry.group}</small>
-                <b>${entry.points} pts</b>
+                <b>${entry.played}</b>
+                <b>${entry.points}</b>
                 <b>${formatGoalDifference(entry.goalDifference)}</b>
               </div>
             `
