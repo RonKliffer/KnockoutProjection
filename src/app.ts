@@ -256,6 +256,7 @@ function renderMatch(
   qualificationStatuses: Record<string, QualificationStatus>
 ): string {
   const schedule = formatMatchSchedule({ ...match, venue: undefined });
+  const venue = bracketVenueText(match.venue);
   const flowClass =
     side === "center" ? "center-match" : side === "left" ? "flows-right" : "flows-left";
   const showSlotSubtitle = match.round === "Round of 32";
@@ -273,8 +274,13 @@ function renderMatch(
         ${showSlotSubtitle ? `<small>${escapeHtml(match.awaySlot)}</small>` : ""}
       </div>
       ${schedule ? `<p class="venue">${escapeHtml(schedule)}</p>` : ""}
+      ${venue ? `<p class="match-venue">${escapeHtml(venue)}</p>` : ""}
     </article>
   `;
+}
+
+function bracketVenueText(venue: string): string {
+  return venue.replace(/\s*(?:referee|officials?)\b.*$/i, "").trim();
 }
 
 function renderBracketTeamName(teamName: string, qualificationStatuses: Record<string, QualificationStatus>): string {

@@ -313,6 +313,12 @@ h1 {
   margin: 6px 0 0;
 }
 
+.match-venue {
+  color: #6f7774;
+  font-size: 0.58rem;
+  margin: 2px 0 0;
+}
+
 .third-place-block,
 .group-card {
   background: #fffdfa;
