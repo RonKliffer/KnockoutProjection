@@ -283,6 +283,18 @@ h1 {
   overflow-wrap: anywhere;
 }
 
+.bracket-team-placed {
+  color: #1769d1;
+}
+
+.bracket-team-qualified {
+  color: #18211f;
+}
+
+.bracket-team-unqualified {
+  color: #808986;
+}
+
 .team-flag {
   flex: 0 0 auto;
   font-size: 0.9em;

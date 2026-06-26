@@ -2,6 +2,7 @@ import type {
   GroupLetter,
   GroupMatch,
   KnockoutMatch,
+  QualificationStatus,
   TeamStanding,
   ThirdPlaceCombination,
   ThirdPlaceRanking
@@ -144,6 +145,42 @@ export function parseThirdPlaceRanking(document: Document): ThirdPlaceRanking[] 
         qualified: rank <= 8
       };
     });
+}
+
+export function parseQualifiedTeams(document: Document): Record<string, QualificationStatus> {
+  const heading = findHeading(document, "Qualified teams");
+  const table = heading ? nextWikitable(heading) : null;
+  if (!table) {
+    throw new Error("Could not find qualified teams table");
+  }
+
+  const rows = Array.from(table.querySelectorAll("tr"));
+  const headerCells = cellTexts(
+    rows.find((row) => cellTexts(row).some((cell) => /^(winners|runners-up|qualified)/i.test(cell))) ?? table
+  );
+  const placedColumns = headerCells
+    .map((cell, index) => (/^(winners|runners-up)$/i.test(cell) ? index : -1))
+    .filter((index) => index >= 0);
+  const qualifiedColumns = headerCells
+    .map((cell, index) => (/^(third-placed teams|qualified)/i.test(cell) ? index : -1))
+    .filter((index) => index >= 0);
+
+  if (!placedColumns.length && !qualifiedColumns.length) {
+    throw new Error("Qualified teams table did not include placement columns");
+  }
+
+  const statuses: Record<string, QualificationStatus> = {};
+  for (const row of rows.filter((row) => row.querySelector("td"))) {
+    const cells = Array.from(row.querySelectorAll("th, td"));
+    for (const index of placedColumns) {
+      addQualifiedCell(statuses, cells[index], "placed");
+    }
+    for (const index of qualifiedColumns) {
+      addQualifiedCell(statuses, cells[index], "qualified");
+    }
+  }
+
+  return statuses;
 }
 
 export function parseThirdPlaceCombinations(document: Document): ThirdPlaceCombination[] {
@@ -484,6 +521,37 @@ function matchMetadataFields(meta: MatchMeta | undefined): Pick<KnockoutMatch, "
 
 function cellTexts(row: Element): string[] {
   return Array.from(row.querySelectorAll("th, td")).map((cell) => text(cell));
+}
+
+function addQualifiedCell(
+  statuses: Record<string, QualificationStatus>,
+  cell: Element | undefined,
+  status: Exclude<QualificationStatus, "unqualified">
+): void {
+  for (const team of qualifiedCellTeamNames(cell)) {
+    statuses[team] = statuses[team] === "placed" ? "placed" : status;
+  }
+}
+
+function qualifiedCellTeamNames(cell: Element | undefined): string[] {
+  if (!cell) {
+    return [];
+  }
+
+  const linkedTeams = uniqueNames(Array.from(cell.querySelectorAll("a")).map((link) => cleanTeamName(text(link))));
+  if (linkedTeams.length) {
+    return linkedTeams;
+  }
+
+  return uniqueNames(cell.innerHTML
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .split("\n")
+    .map(cleanTeamName));
+}
+
+function uniqueNames(names: string[]): string[] {
+  return Array.from(new Set(names.filter(Boolean)));
 }
 
 function cleanTeamName(value: string): string {

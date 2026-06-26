@@ -5,6 +5,7 @@ import {
   parseLaterRounds,
   parseGroupMatches,
   parseGroupStandings,
+  parseQualifiedTeams,
   parseRoundOf32,
   parseThirdPlaceCombinations,
   parseThirdPlaceRanking
@@ -124,6 +125,56 @@ describe("Wikipedia parsers", () => {
     expect(ranking).toHaveLength(12);
     expect(ranking[0]).toMatchObject({ group: "A", qualified: true });
     expect(ranking[8]).toMatchObject({ group: "I", qualified: false });
+  });
+
+  it("extracts qualified team placement statuses", () => {
+    const statuses = parseQualifiedTeams(
+      doc(`
+        <h2>Qualified teams</h2>
+        <table class="wikitable">
+          <tbody>
+            <tr>
+              <th>Group</th>
+              <th>Winners</th>
+              <th>Runners-up</th>
+              <th>Third-placed teams<br>(Best eight qualify)</th>
+              <th>Qualified<br>(position TBD)</th>
+            </tr>
+            <tr>
+              <th>A</th>
+              <td>Mexico (H, Q)</td>
+              <td>South Africa</td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr>
+              <th>B</th>
+              <td>Switzerland</td>
+              <td>Canada</td>
+              <td>Bosnia and Herzegovina</td>
+              <td></td>
+            </tr>
+            <tr>
+              <th>I</th>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td><a href="/wiki/France_national_football_team">France</a><br><a href="/wiki/Norway_national_football_team">Norway</a></td>
+            </tr>
+          </tbody>
+        </table>
+      `)
+    );
+
+    expect(statuses).toEqual({
+      Mexico: "placed",
+      "South Africa": "placed",
+      Switzerland: "placed",
+      Canada: "placed",
+      "Bosnia and Herzegovina": "qualified",
+      France: "qualified",
+      Norway: "qualified"
+    });
   });
 
   it("extracts third-place combinations", () => {

@@ -62,6 +62,8 @@ export interface UserResult {
   awayScore?: number;
 }
 
+export type QualificationStatus = "placed" | "qualified" | "unqualified";
+
 export interface KnockoutMatch {
   matchNumber: number;
   round: string;
@@ -92,6 +94,7 @@ export interface TournamentData {
   knockoutCombinations: ThirdPlaceCombination[];
   roundOf32: KnockoutMatch[];
   thirdPlaceRanking: ThirdPlaceRanking[];
+  qualificationStatuses: Record<string, QualificationStatus>;
   projection: BracketProjection;
   fetchedAt: Date;
   sourceUpdatedText?: string;

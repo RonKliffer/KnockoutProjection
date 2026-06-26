@@ -4,6 +4,7 @@ import {
   parseGroupStandings,
   parseHtml,
   parseLaterRounds,
+  parseQualifiedTeams,
   parseRoundOf32,
   parseThirdPlaceCombinations,
   parseThirdPlaceRanking
@@ -13,7 +14,7 @@ import { buildProjection } from "./projection";
 import { buildSimulatedGroups, buildSimulatedThirdPlaceRanking } from "./simulation";
 import { teamFlag } from "./flags";
 import { formatMatchSchedule } from "./timeFormat";
-import type { GroupLetter, GroupMatch, KnockoutMatch, TeamStanding, TournamentData, UserResult } from "./types";
+import type { GroupLetter, GroupMatch, KnockoutMatch, QualificationStatus, TeamStanding, TournamentData, UserResult } from "./types";
 import { fetchWikipediaHtml } from "./wikipedia";
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
@@ -69,6 +70,7 @@ export async function loadTournamentData(): Promise<TournamentData> {
   const combinations = parseThirdPlaceCombinations(knockoutDocument);
   const roundOf32 = parseRoundOf32(knockoutDocument);
   const laterRounds = parseLaterRounds(knockoutDocument);
+  const qualificationStatuses = parseQualifiedTeams(knockoutDocument);
 
   return {
     groups,
@@ -76,6 +78,7 @@ export async function loadTournamentData(): Promise<TournamentData> {
     knockoutCombinations: combinations,
     roundOf32,
     thirdPlaceRanking,
+    qualificationStatuses,
     projection: buildProjection(groups, thirdPlaceRanking, combinations, roundOf32, laterRounds),
     fetchedAt: new Date(),
     sourceUpdatedText: extractSourceUpdatedText(groupDocument)
@@ -115,7 +118,7 @@ function render(root: HTMLElement, state: AppState, onRefresh: (options?: { clea
               <p>Times in your local timezone</p>
             </div>
           </div>
-          ${renderBracket(data.projection.roundOf32, data.projection.laterRounds)}
+          ${renderBracket(data.projection.roundOf32, data.projection.laterRounds, data.qualificationStatuses)}
         </section>
         <section class="standings-panel">
           <div class="section-heading">
@@ -202,7 +205,11 @@ function applyUserResults(data: TournamentData, userResults: Record<string, User
   };
 }
 
-function renderBracket(roundOf32: KnockoutMatch[], laterRounds: KnockoutMatch[]): string {
+function renderBracket(
+  roundOf32: KnockoutMatch[],
+  laterRounds: KnockoutMatch[],
+  qualificationStatuses: Record<string, QualificationStatus>
+): string {
   const { leftRounds, rightRounds, finals, connections } = buildBracketLayout(roundOf32, laterRounds);
 
   return `
@@ -210,34 +217,44 @@ function renderBracket(roundOf32: KnockoutMatch[], laterRounds: KnockoutMatch[])
       <div class="bracket-stage" data-connections="${escapeHtml(JSON.stringify(connections))}">
         <svg class="bracket-connectors" aria-hidden="true"></svg>
         <div class="bracket-half bracket-half-left">
-          ${leftRounds.map((round, roundIndex) => renderRound(round.label, round.matches, roundIndex + 1, "left")).join("")}
+          ${leftRounds.map((round, roundIndex) => renderRound(round.label, round.matches, roundIndex + 1, "left", qualificationStatuses)).join("")}
         </div>
         <section class="final-column">
           <h3>Final</h3>
           <div class="final-list">
-            ${finals.map((match) => renderMatch(match, "center")).join("")}
+            ${finals.map((match) => renderMatch(match, "center", qualificationStatuses)).join("")}
           </div>
         </section>
         <div class="bracket-half bracket-half-right">
-          ${rightRounds.map((round, roundIndex) => renderRound(round.label, round.matches, 4 - roundIndex, "right")).join("")}
+          ${rightRounds.map((round, roundIndex) => renderRound(round.label, round.matches, 4 - roundIndex, "right", qualificationStatuses)).join("")}
         </div>
       </div>
     </div>
   `;
 }
 
-function renderRound(label: string, matches: KnockoutMatch[], depth: number, side: "left" | "right"): string {
+function renderRound(
+  label: string,
+  matches: KnockoutMatch[],
+  depth: number,
+  side: "left" | "right",
+  qualificationStatuses: Record<string, QualificationStatus>
+): string {
   return `
     <section class="round-column round-depth-${depth} ${side === "right" ? "round-mirrored" : ""}">
       <h3>${label}</h3>
       <div class="match-list">
-        ${matches.map((match) => renderMatch(match, side)).join("")}
+        ${matches.map((match) => renderMatch(match, side, qualificationStatuses)).join("")}
       </div>
     </section>
   `;
 }
 
-function renderMatch(match: KnockoutMatch, side: "left" | "right" | "center" = "left"): string {
+function renderMatch(
+  match: KnockoutMatch,
+  side: "left" | "right" | "center" = "left",
+  qualificationStatuses: Record<string, QualificationStatus>
+): string {
   const schedule = formatMatchSchedule({ ...match, venue: undefined });
   const flowClass =
     side === "center" ? "center-match" : side === "left" ? "flows-right" : "flows-left";
@@ -248,11 +265,11 @@ function renderMatch(match: KnockoutMatch, side: "left" | "right" | "center" = "
         <span>Match ${match.matchNumber}</span>
       </div>
       <div class="team-row">
-        <strong>${renderBracketTeamName(match.resolvedHomeTeam)}</strong>
+        <strong>${renderBracketTeamName(match.resolvedHomeTeam, qualificationStatuses)}</strong>
         ${showSlotSubtitle ? `<small>${escapeHtml(match.homeSlot)}</small>` : ""}
       </div>
       <div class="team-row">
-        <strong>${renderBracketTeamName(match.resolvedAwayTeam)}</strong>
+        <strong>${renderBracketTeamName(match.resolvedAwayTeam, qualificationStatuses)}</strong>
         ${showSlotSubtitle ? `<small>${escapeHtml(match.awaySlot)}</small>` : ""}
       </div>
       ${schedule ? `<p class="venue">${escapeHtml(schedule)}</p>` : ""}
@@ -260,9 +277,10 @@ function renderMatch(match: KnockoutMatch, side: "left" | "right" | "center" = "
   `;
 }
 
-function renderBracketTeamName(teamName: string): string {
+function renderBracketTeamName(teamName: string, qualificationStatuses: Record<string, QualificationStatus>): string {
   const flag = teamFlag(teamName);
-  return `${flag ? `<span class="team-flag" aria-hidden="true">${flag}</span>` : ""}<span>${escapeHtml(teamName)}</span>`;
+  const status = qualificationStatuses[teamName] ?? "unqualified";
+  return `${flag ? `<span class="team-flag bracket-team-${status}" aria-hidden="true">${flag}</span>` : ""}<span class="bracket-team-${status}">${escapeHtml(teamName)}</span>`;
 }
 
 function updateBracketConnectors(root: HTMLElement): void {
