@@ -127,6 +127,12 @@ describe("Wikipedia parsers", () => {
     expect(ranking[8]).toMatchObject({ group: "I", qualified: false });
   });
 
+  it("extracts third-place ranking with current Wikipedia heading wording", () => {
+    const ranking = parseThirdPlaceRanking(doc(groupsHtml.replace("Ranking of third-placed teams", "Ranking of third-place teams")));
+    expect(ranking).toHaveLength(12);
+    expect(ranking[0]).toMatchObject({ group: "A", team: "A Third", qualified: true });
+  });
+
   it("extracts qualified team placement statuses", () => {
     const statuses = parseQualifiedTeams(
       doc(`

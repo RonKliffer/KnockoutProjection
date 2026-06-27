@@ -111,7 +111,7 @@ export function parseGroupMatches(document: Document): Record<GroupLetter, Group
 }
 
 export function parseThirdPlaceRanking(document: Document): ThirdPlaceRanking[] {
-  const heading = findHeading(document, "Ranking of third-placed teams");
+  const heading = findHeading(document, /ranking of third-plac(?:e|ed) teams/);
   const table = heading ? nextWikitable(heading) : null;
   if (!table) {
     throw new Error("Could not find ranking of third-placed teams table");
@@ -371,12 +371,12 @@ function parseFootballBox(box: Element, group: GroupLetter, index: number): Grou
   };
 }
 
-function findHeading(document: Document, label: string): Element | null {
-  const normalized = normalizeText(label);
+function findHeading(document: Document, label: string | RegExp): Element | null {
   return (
-    Array.from(document.querySelectorAll(".mw-heading, h2, h3, h4")).find((heading) =>
-      normalizeText(heading.textContent ?? "").includes(normalized)
-    ) ?? null
+    Array.from(document.querySelectorAll(".mw-heading, h2, h3, h4")).find((heading) => {
+      const normalized = normalizeText(heading.textContent ?? "");
+      return typeof label === "string" ? normalized.includes(normalizeText(label)) : label.test(normalized);
+    }) ?? null
   );
 }
 

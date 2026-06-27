@@ -15,10 +15,20 @@ import { buildProjection } from "./projection";
 import { buildSimulatedGroups, buildSimulatedThirdPlaceRanking } from "./simulation";
 import { teamFlag } from "./flags";
 import { formatMatchSchedule } from "./timeFormat";
-import type { GroupLetter, GroupMatch, KnockoutMatch, QualificationStatus, TeamStanding, TournamentData, UserResult } from "./types";
+import type {
+  GroupLetter,
+  GroupMatch,
+  KnockoutMatch,
+  QualificationStatus,
+  TeamStanding,
+  ThirdPlaceRanking,
+  TournamentData,
+  UserResult
+} from "./types";
 import { fetchWikipediaHtml } from "./wikipedia";
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const THIRD_PLACE_RANKING_TABLE_ERROR = "Could not find ranking of third-placed teams table";
 
 interface AppState {
   data?: TournamentData;
@@ -67,7 +77,7 @@ export async function loadTournamentData(): Promise<TournamentData> {
   const knockoutDocument = parseHtml(knockoutHtml);
   const groups = parseGroupStandings(groupDocument);
   const groupMatches = parseGroupMatches(groupDocument);
-  const thirdPlaceRanking = parseThirdPlaceRanking(groupDocument);
+  const thirdPlaceRanking = resolveThirdPlaceRanking(groupDocument, groups);
   const combinations = parseThirdPlaceCombinations(knockoutDocument);
   const roundOf32 = parseRoundOf32(knockoutDocument);
   const laterRounds = parseLaterRounds(knockoutDocument);
@@ -84,6 +94,21 @@ export async function loadTournamentData(): Promise<TournamentData> {
     fetchedAt: new Date(),
     sourceUpdatedText: extractSourceUpdatedText(groupDocument)
   };
+}
+
+export function resolveThirdPlaceRanking(
+  groupDocument: Document,
+  groups: Record<GroupLetter, TeamStanding[]>
+): ThirdPlaceRanking[] {
+  try {
+    return parseThirdPlaceRanking(groupDocument);
+  } catch (error) {
+    if (error instanceof Error && error.message === THIRD_PLACE_RANKING_TABLE_ERROR) {
+      return buildSimulatedThirdPlaceRanking(groups, []);
+    }
+
+    throw error;
+  }
 }
 
 function render(root: HTMLElement, state: AppState, onRefresh: (options?: { clearUserResults?: boolean }) => void): void {
