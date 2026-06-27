@@ -155,14 +155,15 @@ export function parseQualifiedTeams(document: Document): Record<string, Qualific
   }
 
   const rows = Array.from(table.querySelectorAll("tr"));
-  const headerCells = cellTexts(
-    rows.find((row) => cellTexts(row).some((cell) => /^(winners|runners-up|qualified)/i.test(cell))) ?? table
-  );
-  const placedColumns = headerCells
-    .map((cell, index) => (/^(winners|runners-up)$/i.test(cell) ? index : -1))
+  const headerCells = cellTexts(rows.find((row) => cellTexts(row).some(isQualifiedTeamsHeaderCell)) ?? table);
+  const normalizedHeaderCells = headerCells.map(normalizeHeaderText);
+  const placedColumns = normalizedHeaderCells
+    .map((cell, index) => (/^(winners|runners-up)$/.test(cell) ? index : -1))
     .filter((index) => index >= 0);
-  const qualifiedColumns = headerCells
-    .map((cell, index) => (/^(third-placed teams|qualified)/i.test(cell) ? index : -1))
+  const qualifiedColumns = normalizedHeaderCells
+    .map((cell, index) =>
+      (cell.includes("third-placed teams") || /^qualified\b/.test(cell) ? index : -1)
+    )
     .filter((index) => index >= 0);
 
   if (!placedColumns.length && !qualifiedColumns.length) {
@@ -572,6 +573,20 @@ function normalizeSlot(value: string): string {
 
 function normalizeText(value: string): string {
   return value.replace(/\[edit\]/gi, "").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function isQualifiedTeamsHeaderCell(value: string): boolean {
+  const header = normalizeHeaderText(value);
+  return /^(winners|runners-up|qualified)\b/.test(header) || /\bthird-placed teams\b/.test(header);
+}
+
+function normalizeHeaderText(value: string): string {
+  return value
+    .normalize("NFKC")
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 }
 
 function text(element: Element): string {

@@ -177,6 +177,79 @@ describe("Wikipedia parsers", () => {
     });
   });
 
+  it("extracts best-eight third-place teams from the qualified teams table", () => {
+    const statuses = parseQualifiedTeams(
+      doc(`
+        <h2>Qualified teams</h2>
+        <table class="wikitable">
+          <tbody>
+            <tr>
+              <th>Group</th>
+              <th>Winners</th>
+              <th>Runners-up</th>
+              <th>Best eightthird&#8209;placed teams</th>
+              <th>Qualified<br>(position TBD)</th>
+            </tr>
+            <tr>
+              <th>B</th>
+              <td>Switzerland</td>
+              <td>Canada</td>
+              <td>Bosnia and Herzegovina</td>
+              <td></td>
+            </tr>
+            <tr>
+              <th>D</th>
+              <td>United States</td>
+              <td>Australia</td>
+              <td>Paraguay</td>
+              <td></td>
+            </tr>
+            <tr>
+              <th>E</th>
+              <td>Germany</td>
+              <td>Ivory Coast</td>
+              <td>Ecuador</td>
+              <td></td>
+            </tr>
+            <tr>
+              <th>F</th>
+              <td>Netherlands</td>
+              <td>Japan</td>
+              <td><a href="/wiki/Sweden_national_football_team">Sweden</a></td>
+              <td></td>
+            </tr>
+            <tr>
+              <th>I</th>
+              <td>France</td>
+              <td>Norway</td>
+              <td>Senegal</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      `)
+    );
+
+    expect(statuses).toEqual({
+      Switzerland: "placed",
+      Canada: "placed",
+      "Bosnia and Herzegovina": "qualified",
+      "United States": "placed",
+      Australia: "placed",
+      Paraguay: "qualified",
+      Germany: "placed",
+      "Ivory Coast": "placed",
+      Ecuador: "qualified",
+      Netherlands: "placed",
+      Japan: "placed",
+      Sweden: "qualified",
+      France: "placed",
+      Norway: "placed",
+      Senegal: "qualified"
+    });
+    expect(statuses.Uruguay).toBeUndefined();
+  });
+
   it("extracts third-place combinations", () => {
     const combinations = parseThirdPlaceCombinations(
       doc(`
