@@ -10,6 +10,7 @@ import {
   parseThirdPlaceRanking
 } from "./parse";
 import { buildBracketLayout, buildConnectorPath } from "./bracketLayout";
+import { buildKnockoutSchedule } from "./knockoutSchedule";
 import { buildProjection } from "./projection";
 import { buildSimulatedGroups, buildSimulatedThirdPlaceRanking } from "./simulation";
 import { teamFlag } from "./flags";
@@ -119,6 +120,7 @@ function render(root: HTMLElement, state: AppState, onRefresh: (options?: { clea
             </div>
           </div>
           ${renderBracket(data.projection.roundOf32, data.projection.laterRounds, data.qualificationStatuses)}
+          ${renderKnockoutSchedule(data.projection.roundOf32, data.projection.laterRounds, data.qualificationStatuses)}
         </section>
         <section class="standings-panel">
           <div class="section-heading">
@@ -275,6 +277,60 @@ function renderMatch(
       </div>
       ${schedule ? `<p class="venue">${escapeHtml(schedule)}</p>` : ""}
       ${venue ? `<p class="match-venue">${escapeHtml(venue)}</p>` : ""}
+    </article>
+  `;
+}
+
+function renderKnockoutSchedule(
+  roundOf32: KnockoutMatch[],
+  laterRounds: KnockoutMatch[],
+  qualificationStatuses: Record<string, QualificationStatus>
+): string {
+  const stages = buildKnockoutSchedule(roundOf32, laterRounds);
+
+  return `
+    <section class="knockout-schedule">
+      <div class="section-heading schedule-heading">
+        <h2>Knockout matches</h2>
+      </div>
+      <div class="schedule-stage-list">
+        ${stages.map((stage) => renderScheduleStage(stage.round, stage.matches, qualificationStatuses)).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderScheduleStage(
+  round: string,
+  matches: KnockoutMatch[],
+  qualificationStatuses: Record<string, QualificationStatus>
+): string {
+  return `
+    <section class="schedule-stage">
+      <h3>${escapeHtml(round)}</h3>
+      <div class="schedule-match-list">
+        ${matches.map((match) => renderScheduleMatch(match, qualificationStatuses)).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderScheduleMatch(match: KnockoutMatch, qualificationStatuses: Record<string, QualificationStatus>): string {
+  const schedule = formatMatchSchedule({ ...match, venue: undefined });
+  const venue = bracketVenueText(match.venue);
+
+  return `
+    <article class="schedule-match">
+      <div class="schedule-match-meta">
+        <span>Match ${match.matchNumber}</span>
+        ${schedule ? `<time>${escapeHtml(schedule)}</time>` : ""}
+      </div>
+      <div class="schedule-teams">
+        <strong>${renderBracketTeamName(match.resolvedHomeTeam, qualificationStatuses)}</strong>
+        <span>vs</span>
+        <strong>${renderBracketTeamName(match.resolvedAwayTeam, qualificationStatuses)}</strong>
+      </div>
+      ${venue ? `<p>${escapeHtml(venue)}</p>` : ""}
     </article>
   `;
 }
