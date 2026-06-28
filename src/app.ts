@@ -163,7 +163,6 @@ function render(root: HTMLElement, state: AppState, onRefresh: (options?: { clea
               <h2>Group results</h2>
               <p>Enter scores for unplayed matches to update the standings and bracket.</p>
             </div>
-            <button class="clear-button clear-all-button" type="button">Clear all</button>
           </div>
           ${renderGroupResults(data.groupMatches, state.userResults)}
         </section>
@@ -176,20 +175,6 @@ function render(root: HTMLElement, state: AppState, onRefresh: (options?: { clea
 
   scheduleBracketConnectorUpdate(root);
   root.querySelector<HTMLButtonElement>(".refresh-button")?.addEventListener("click", () => onRefresh({ clearUserResults: true }));
-  root.querySelector<HTMLButtonElement>(".clear-all-button")?.addEventListener("click", () => {
-    state.userResults = {};
-    render(root, state, onRefresh);
-  });
-  root.querySelectorAll<HTMLButtonElement>(".clear-group-button").forEach((button) => {
-    button.addEventListener("click", () => {
-      const group = button.dataset.group as GroupLetter | undefined;
-      const matches = group && state.data?.groupMatches[group] ? state.data.groupMatches[group] : [];
-      for (const match of matches) {
-        delete state.userResults[match.id];
-      }
-      render(root, state, onRefresh);
-    });
-  });
   root.querySelectorAll<HTMLInputElement>(".score-input").forEach((input) => {
     input.addEventListener("input", () => {
       const matchId = input.dataset.matchId;
@@ -508,7 +493,6 @@ function renderGroupResults(
             <section class="results-group">
               <div class="results-group-heading">
                 <h3>Group ${group}</h3>
-                <button class="clear-button clear-group-button" type="button" data-group="${group}">Clear</button>
               </div>
               <div class="results-list">
                 ${matches.map((match) => renderGroupMatch(match, userResults[match.id])).join("")}

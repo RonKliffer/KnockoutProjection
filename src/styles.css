@@ -283,16 +283,10 @@ h1 {
   overflow-wrap: anywhere;
 }
 
-.bracket-team-placed {
-  color: #1769d1;
-}
-
-.bracket-team-qualified {
-  color: #18211f;
-}
-
+.bracket-team-placed,
+.bracket-team-qualified,
 .bracket-team-unqualified {
-  color: #808986;
+  color: #18211f;
 }
 
 .team-flag {
@@ -543,28 +537,6 @@ th {
 .results-heading p {
   margin-top: 2px;
   text-align: left;
-}
-
-.clear-button {
-  background: #fffdfa;
-  border: 1px solid #cfc5b6;
-  border-radius: 8px;
-  color: #163c3a;
-  cursor: pointer;
-  font-size: 0.76rem;
-  font-weight: 800;
-  min-height: 32px;
-  padding: 0 10px;
-}
-
-.clear-button:hover {
-  background: #e7f4ef;
-  border-color: #9fbdb2;
-}
-
-.clear-all-button {
-  min-height: 38px;
-  padding: 0 14px;
 }
 
 .results-grid {
