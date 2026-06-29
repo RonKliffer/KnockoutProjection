@@ -33,6 +33,34 @@ describe("knockout schedule", () => {
 
     expect(stages[0].matches.map((stageMatch) => stageMatch.matchNumber)).toEqual([75, 74, 76]);
   });
+
+  it("sorts completed and upcoming matches together by kickoff while preserving completed scores", () => {
+    const stages = buildKnockoutSchedule(
+      [
+        match({ matchNumber: 74, round: "Round of 32", kickoffAt: "2026-06-29T17:00:00.000Z", played: false }),
+        match({
+          matchNumber: 73,
+          round: "Round of 32",
+          kickoffAt: "2026-06-28T19:00:00.000Z",
+          homeScore: 2,
+          awayScore: 1,
+          played: true,
+          winnerTeam: "Home",
+          loserTeam: "Away"
+        })
+      ],
+      []
+    );
+
+    expect(stages[0].matches.map((stageMatch) => stageMatch.matchNumber)).toEqual([73, 74]);
+    expect(stages[0].matches[0]).toMatchObject({
+      matchNumber: 73,
+      homeScore: 2,
+      awayScore: 1,
+      played: true,
+      winnerTeam: "Home"
+    });
+  });
 });
 
 function match(overrides: Partial<KnockoutMatch>): KnockoutMatch {

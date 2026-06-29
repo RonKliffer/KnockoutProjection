@@ -55,6 +55,13 @@ interface MatchMeta {
   time: string;
   kickoffAt?: string;
   venue: string;
+  homeTeam?: string;
+  awayTeam?: string;
+  homeScore?: number;
+  awayScore?: number;
+  played?: boolean;
+  winnerTeam?: string;
+  loserTeam?: string;
 }
 
 export function parseHtml(html: string): Document {
@@ -217,6 +224,10 @@ export function parseRoundOf32(document: Document): KnockoutMatch[] {
     return fallbackRoundOf32(metadata);
   }
 
+  for (const [matchNumber, meta] of parseRoundOf32FootballBoxMetadata(section)) {
+    metadata.set(matchNumber, meta);
+  }
+
   const matches: KnockoutMatch[] = [];
   let current = section.nextElementSibling;
 
@@ -237,8 +248,9 @@ export function parseRoundOf32(document: Document): KnockoutMatch[] {
           venue: meta.venue,
           homeSlot: slots[0],
           awaySlot: slots[1],
-          resolvedHomeTeam: slots[0],
-          resolvedAwayTeam: slots[1]
+          resolvedHomeTeam: meta.homeTeam ?? slots[0],
+          resolvedAwayTeam: meta.awayTeam ?? slots[1],
+          ...matchResultFields(meta)
         });
       }
     }
@@ -258,22 +270,27 @@ export function parseRoundOf32(document: Document): KnockoutMatch[] {
       venue: parsed?.venue ?? "",
       homeSlot,
       awaySlot,
-      resolvedHomeTeam: homeSlot,
-      resolvedAwayTeam: awaySlot
+      resolvedHomeTeam: parsedTeam(parsed, "home") ?? homeSlot,
+      resolvedAwayTeam: parsedTeam(parsed, "away") ?? awaySlot,
+      ...matchResultFields(parsed)
     };
   });
 }
 
 export function buildLaterRounds(metadata = new Map<number, MatchMeta>()): KnockoutMatch[] {
-  return LATER_ROUNDS.map(([matchNumber, round, homeSlot, awaySlot]) => ({
-    ...matchMetadataFields(metadata.get(matchNumber)),
-    matchNumber,
-    round,
-    homeSlot,
-    awaySlot,
-    resolvedHomeTeam: homeSlot,
-    resolvedAwayTeam: awaySlot
-  }));
+  return LATER_ROUNDS.map(([matchNumber, round, homeSlot, awaySlot]) => {
+    const meta = metadata.get(matchNumber);
+    return {
+      ...matchMetadataFields(meta),
+      matchNumber,
+      round,
+      homeSlot,
+      awaySlot,
+      resolvedHomeTeam: meta?.homeTeam ?? homeSlot,
+      resolvedAwayTeam: meta?.awayTeam ?? awaySlot,
+      ...matchResultFields(meta)
+    };
+  });
 }
 
 export function parseLaterRounds(document: Document): KnockoutMatch[] {
@@ -422,17 +439,57 @@ function parseKnockoutMetadata(document: Document): Map<number, MatchMeta> {
   return metadata;
 }
 
+function parseRoundOf32FootballBoxMetadata(section: Element): Map<number, MatchMeta> {
+  const metadata = new Map<number, MatchMeta>();
+  let current = section.nextElementSibling;
+  let boxIndex = 0;
+
+  while (current && !/^H2$/i.test(current.tagName)) {
+    if (current.matches(".footballbox")) {
+      const meta = parseFootballBoxMeta(current);
+      const fallbackMatchNumber = ROUND_OF_32_SCHEDULE[boxIndex]?.[0];
+      const matchNumber = meta.matchNumber ?? fallbackMatchNumber;
+
+      if (matchNumber) {
+        metadata.set(matchNumber, { ...meta, matchNumber });
+      }
+
+      boxIndex += 1;
+    }
+
+    current = current.nextElementSibling;
+  }
+
+  return metadata;
+}
+
 function parseFootballBoxMeta(box: Element): MatchMeta {
   const date = text(box.querySelector(".fdate") ?? box).replace(/\s+\(.*\)$/, "");
   const time = text(box.querySelector(".ftime") ?? box);
+  const homeCell = box.querySelector(".fhome");
+  const awayCell = box.querySelector(".faway");
+  const homeTeam = cleanTeamName(text(homeCell?.querySelector("[itemprop='name']") ?? homeCell ?? box));
+  const awayTeam = cleanTeamName(text(awayCell?.querySelector("[itemprop='name']") ?? awayCell ?? box));
   const scoreText = text(box.querySelector(".fscore") ?? box);
+  const score = scoreText.match(/(\d+)\s*[–-]\s*(\d+)/);
+  const homeScore = score ? Number(score[1]) : undefined;
+  const awayScore = score ? Number(score[2]) : undefined;
+  const winnerTeam = determineKnockoutWinner(homeCell, awayCell, homeTeam, awayTeam, homeScore, awayScore);
+  const loserTeam = winnerTeam === homeTeam ? awayTeam : winnerTeam === awayTeam ? homeTeam : undefined;
 
   return {
-    matchNumber: Number(scoreText.match(/Match\s+(\d+)/i)?.[1]) || undefined,
+    matchNumber: Number((scoreText.match(/Match\s+(\d+)/i) ?? text(box).match(/Match\s+(\d+)/i))?.[1]) || undefined,
     date,
     time,
     kickoffAt: parseKickoffAt(date, time),
-    venue: optionalText(box.querySelector(".flocation") ?? box.querySelector(".fright"))
+    venue: optionalText(box.querySelector(".flocation") ?? box.querySelector(".fright")),
+    homeTeam: homeTeam || undefined,
+    awayTeam: awayTeam || undefined,
+    homeScore,
+    awayScore,
+    played: Boolean(score),
+    winnerTeam,
+    loserTeam
   };
 }
 
@@ -500,15 +557,19 @@ function extractVenue(details: string[]): string {
 }
 
 function fallbackRoundOf32(metadata = new Map<number, MatchMeta>()): KnockoutMatch[] {
-  return ROUND_OF_32_SCHEDULE.map(([matchNumber, homeSlot, awaySlot]) => ({
-    ...matchMetadataFields(metadata.get(matchNumber)),
-    matchNumber,
-    round: "Round of 32",
-    homeSlot,
-    awaySlot,
-    resolvedHomeTeam: homeSlot,
-    resolvedAwayTeam: awaySlot
-  }));
+  return ROUND_OF_32_SCHEDULE.map(([matchNumber, homeSlot, awaySlot]) => {
+    const meta = metadata.get(matchNumber);
+    return {
+      ...matchMetadataFields(meta),
+      matchNumber,
+      round: "Round of 32",
+      homeSlot,
+      awaySlot,
+      resolvedHomeTeam: meta?.homeTeam ?? homeSlot,
+      resolvedAwayTeam: meta?.awayTeam ?? awaySlot,
+      ...matchResultFields(meta)
+    };
+  });
 }
 
 function matchMetadataFields(meta: MatchMeta | undefined): Pick<KnockoutMatch, "date" | "time" | "kickoffAt" | "venue"> {
@@ -518,6 +579,30 @@ function matchMetadataFields(meta: MatchMeta | undefined): Pick<KnockoutMatch, "
     kickoffAt: meta?.kickoffAt,
     venue: meta?.venue ?? ""
   };
+}
+
+function matchResultFields(
+  meta: MatchMeta | undefined
+): Pick<KnockoutMatch, "homeScore" | "awayScore" | "played" | "winnerTeam" | "loserTeam"> {
+  return {
+    homeScore: meta?.homeScore,
+    awayScore: meta?.awayScore,
+    played: meta?.played,
+    winnerTeam: meta?.winnerTeam,
+    loserTeam: meta?.loserTeam
+  };
+}
+
+function parsedTeam(parsed: KnockoutMatch | MatchMeta | undefined, side: "home" | "away"): string | undefined {
+  if (!parsed) {
+    return undefined;
+  }
+
+  if ("resolvedHomeTeam" in parsed) {
+    return side === "home" ? parsed.resolvedHomeTeam : parsed.resolvedAwayTeam;
+  }
+
+  return side === "home" ? parsed.homeTeam : parsed.awayTeam;
 }
 
 function cellTexts(row: Element): string[] {
@@ -553,6 +638,38 @@ function qualifiedCellTeamNames(cell: Element | undefined): string[] {
 
 function uniqueNames(names: string[]): string[] {
   return Array.from(new Set(names.filter(Boolean)));
+}
+
+function determineKnockoutWinner(
+  homeCell: Element | null,
+  awayCell: Element | null,
+  homeTeam: string,
+  awayTeam: string,
+  homeScore: number | undefined,
+  awayScore: number | undefined
+): string | undefined {
+  if (homeScore !== undefined && awayScore !== undefined && homeScore !== awayScore) {
+    return homeScore > awayScore ? homeTeam : awayTeam;
+  }
+
+  if (isMarkedWinner(homeCell)) {
+    return homeTeam || undefined;
+  }
+
+  if (isMarkedWinner(awayCell)) {
+    return awayTeam || undefined;
+  }
+
+  return undefined;
+}
+
+function isMarkedWinner(cell: Element | null): boolean {
+  if (!cell) {
+    return false;
+  }
+
+  const classText = cell.getAttribute("class") ?? "";
+  return /\bwinner\b/i.test(classText) || Boolean(cell.querySelector(".winner, b, strong"));
 }
 
 function cleanTeamName(value: string): string {

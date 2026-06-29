@@ -87,4 +87,97 @@ describe("projection", () => {
     expect(projection.roundOf32[1].resolvedAwayTeam).toBe("C3");
     expect(projection.laterRounds).toHaveLength(16);
   });
+
+  it("fills future winner slots from completed knockout matches", () => {
+    const projection = buildProjection(
+      groups,
+      thirdPlaceRanking,
+      combinations,
+      [
+        {
+          ...roundOf32[0],
+          homeScore: 2,
+          awayScore: 1,
+          played: true
+        },
+        roundOf32[1]
+      ]
+    );
+    const match90 = projection.laterRounds.find((match) => match.matchNumber === 90);
+
+    expect(projection.roundOf32[0]).toMatchObject({
+      winnerTeam: "A2",
+      loserTeam: "B2"
+    });
+    expect(match90).toMatchObject({
+      resolvedHomeTeam: "A2",
+      resolvedAwayTeam: "Winner Match 75"
+    });
+  });
+
+  it("fills the third-place match from semifinal losers", () => {
+    const projection = buildProjection(groups, thirdPlaceRanking, combinations, [], [
+      knockoutMatch({
+        matchNumber: 101,
+        round: "Semifinals",
+        homeSlot: "Winner Match 97",
+        awaySlot: "Winner Match 98",
+        resolvedHomeTeam: "Argentina",
+        resolvedAwayTeam: "Brazil",
+        homeScore: 0,
+        awayScore: 1,
+        played: true
+      }),
+      knockoutMatch({
+        matchNumber: 102,
+        round: "Semifinals",
+        homeSlot: "Winner Match 99",
+        awaySlot: "Winner Match 100",
+        resolvedHomeTeam: "France",
+        resolvedAwayTeam: "Spain",
+        homeScore: 3,
+        awayScore: 2,
+        played: true
+      }),
+      knockoutMatch({
+        matchNumber: 103,
+        round: "Third place",
+        homeSlot: "Loser Match 101",
+        awaySlot: "Loser Match 102",
+        resolvedHomeTeam: "Loser Match 101",
+        resolvedAwayTeam: "Loser Match 102"
+      })
+    ]);
+    const thirdPlace = projection.laterRounds.find((match) => match.matchNumber === 103);
+
+    expect(thirdPlace).toMatchObject({
+      resolvedHomeTeam: "Argentina",
+      resolvedAwayTeam: "Spain"
+    });
+  });
+
+  it("keeps unresolved future slots as placeholders", () => {
+    const projection = buildProjection(groups, thirdPlaceRanking, combinations, []);
+    const match89 = projection.laterRounds.find((match) => match.matchNumber === 89);
+
+    expect(match89).toMatchObject({
+      resolvedHomeTeam: "Winner Match 74",
+      resolvedAwayTeam: "Winner Match 77"
+    });
+  });
 });
+
+function knockoutMatch(overrides: Partial<KnockoutMatch>): KnockoutMatch {
+  return {
+    matchNumber: 1,
+    round: "Round of 32",
+    date: "",
+    time: "",
+    venue: "",
+    homeSlot: "Home",
+    awaySlot: "Away",
+    resolvedHomeTeam: "Home",
+    resolvedAwayTeam: "Away",
+    ...overrides
+  };
+}

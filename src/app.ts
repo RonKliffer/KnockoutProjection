@@ -278,11 +278,11 @@ function renderMatch(
         <span>Match ${match.matchNumber}</span>
       </div>
       <div class="team-row">
-        <strong>${renderBracketTeamName(match.resolvedHomeTeam, qualificationStatuses)}</strong>
+        ${renderMatchTeam(match, "home", qualificationStatuses)}
         ${showSlotSubtitle ? `<small>${escapeHtml(match.homeSlot)}</small>` : ""}
       </div>
       <div class="team-row">
-        <strong>${renderBracketTeamName(match.resolvedAwayTeam, qualificationStatuses)}</strong>
+        ${renderMatchTeam(match, "away", qualificationStatuses)}
         ${showSlotSubtitle ? `<small>${escapeHtml(match.awaySlot)}</small>` : ""}
       </div>
       ${schedule ? `<p class="venue">${escapeHtml(schedule)}</p>` : ""}
@@ -336,9 +336,9 @@ function renderScheduleMatch(match: KnockoutMatch, qualificationStatuses: Record
         ${schedule ? `<time>${escapeHtml(schedule)}</time>` : ""}
       </div>
       <div class="schedule-teams">
-        <strong>${renderBracketTeamName(match.resolvedHomeTeam, qualificationStatuses)}</strong>
-        <span>vs</span>
-        <strong>${renderBracketTeamName(match.resolvedAwayTeam, qualificationStatuses)}</strong>
+        ${renderMatchTeam(match, "home", qualificationStatuses)}
+        <span>${match.played ? "FT" : "vs"}</span>
+        ${renderMatchTeam(match, "away", qualificationStatuses)}
       </div>
       ${venue ? `<p>${escapeHtml(venue)}</p>` : ""}
     </article>
@@ -353,6 +353,23 @@ function renderBracketTeamName(teamName: string, qualificationStatuses: Record<s
   const flag = teamFlag(teamName);
   const status = qualificationStatuses[teamName] ?? "unqualified";
   return `${flag ? `<span class="team-flag bracket-team-${status}" aria-hidden="true">${flag}</span>` : ""}<span class="bracket-team-${status}">${escapeHtml(teamName)}</span>`;
+}
+
+function renderMatchTeam(
+  match: KnockoutMatch,
+  side: "home" | "away",
+  qualificationStatuses: Record<string, QualificationStatus>
+): string {
+  const teamName = side === "home" ? match.resolvedHomeTeam : match.resolvedAwayTeam;
+  const score = side === "home" ? match.homeScore : match.awayScore;
+  const winnerClass = match.winnerTeam === teamName ? " match-team-winner" : "";
+
+  return `
+    <strong class="match-team${winnerClass}">
+      <span class="match-team-name">${renderBracketTeamName(teamName, qualificationStatuses)}</span>
+      ${match.played ? `<span class="match-score">${score ?? "-"}</span>` : ""}
+    </strong>
+  `;
 }
 
 function updateBracketConnectors(root: HTMLElement): void {

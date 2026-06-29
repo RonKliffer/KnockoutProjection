@@ -269,18 +269,42 @@ h1 {
   padding: 6px 0;
 }
 
-.team-row strong {
+.team-row strong,
+.match-team {
   align-items: center;
   display: flex;
   font-size: 0.78rem;
   gap: 6px;
+  justify-content: space-between;
   line-height: 1.15;
   min-width: 0;
 }
 
-.team-row strong span:last-child {
+.match-team-name,
+.team-row strong .match-team-name span:last-child {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.match-team-winner {
+  color: #0f5a45;
+}
+
+.match-score {
+  background: #18211f;
+  border-radius: 6px;
+  color: #fffdfa;
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+  min-width: 22px;
+  padding: 4px 6px;
+  text-align: center;
+}
+
+.match-team-winner .match-score {
+  background: #0f5a45;
 }
 
 .bracket-team-placed,
@@ -377,22 +401,24 @@ h1 {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 }
 
-.schedule-teams strong {
+.schedule-teams strong,
+.schedule-teams .match-team {
   align-items: center;
   display: flex;
   font-size: 0.82rem;
   gap: 6px;
+  justify-content: space-between;
   line-height: 1.15;
   min-width: 0;
 }
 
-.schedule-teams strong span:last-child {
+.schedule-teams .match-team-name,
+.schedule-teams strong .match-team-name span:last-child {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 .schedule-teams strong:last-child {
-  justify-content: flex-end;
   text-align: right;
 }
 

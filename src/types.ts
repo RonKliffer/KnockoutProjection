@@ -75,6 +75,11 @@ export interface KnockoutMatch {
   awaySlot: string;
   resolvedHomeTeam: string;
   resolvedAwayTeam: string;
+  homeScore?: number;
+  awayScore?: number;
+  played?: boolean;
+  winnerTeam?: string;
+  loserTeam?: string;
 }
 
 export interface ThirdPlaceCombination {

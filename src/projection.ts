@@ -26,13 +26,13 @@ export function buildProjection(
     throw new Error(`No third-place combination found for groups ${qualifiedGroups}`);
   }
 
+  const projectedMatches = new Map<number, KnockoutMatch>();
+  const projectedRoundOf32 = roundOf32.map((match) => projectMatch(match, groups, thirdPlaceRanking, combination, projectedMatches));
+  const projectedLaterRounds = laterRounds.map((match) => projectMatch(match, groups, thirdPlaceRanking, combination, projectedMatches));
+
   return {
-    roundOf32: roundOf32.map((match) => ({
-      ...match,
-      resolvedHomeTeam: resolveSlot(match.homeSlot, groups, thirdPlaceRanking, combination),
-      resolvedAwayTeam: resolveSlot(match.awaySlot, groups, thirdPlaceRanking, combination)
-    })),
-    laterRounds,
+    roundOf32: projectedRoundOf32,
+    laterRounds: projectedLaterRounds,
     thirdPlaceKey: qualifiedGroups
   };
 }
@@ -65,6 +65,90 @@ export function resolveSlot(
   }
 
   return slot;
+}
+
+function projectMatch(
+  match: KnockoutMatch,
+  groups: Record<GroupLetter, TeamStanding[]>,
+  thirdPlaceRanking: ThirdPlaceRanking[],
+  combination: ThirdPlaceCombination,
+  projectedMatches: Map<number, KnockoutMatch>
+): KnockoutMatch {
+  const resolvedHomeTeam = resolveKnockoutSlot(match.homeSlot, groups, thirdPlaceRanking, combination, projectedMatches);
+  const resolvedAwayTeam = resolveKnockoutSlot(match.awaySlot, groups, thirdPlaceRanking, combination, projectedMatches);
+  const homeTeam = preferParsedTeam(match.resolvedHomeTeam, match.homeSlot, resolvedHomeTeam);
+  const awayTeam = preferParsedTeam(match.resolvedAwayTeam, match.awaySlot, resolvedAwayTeam);
+  const result = resolveResult(match, homeTeam, awayTeam);
+  const projected = {
+    ...match,
+    resolvedHomeTeam: homeTeam,
+    resolvedAwayTeam: awayTeam,
+    ...result
+  };
+
+  projectedMatches.set(projected.matchNumber, projected);
+  return projected;
+}
+
+function resolveKnockoutSlot(
+  slot: string,
+  groups: Record<GroupLetter, TeamStanding[]>,
+  thirdPlaceRanking: ThirdPlaceRanking[],
+  combination: ThirdPlaceCombination,
+  projectedMatches: Map<number, KnockoutMatch>
+): string {
+  const winnerMatch = slot.match(/^Winner Match (\d+)$/);
+  if (winnerMatch) {
+    return projectedMatches.get(Number(winnerMatch[1]))?.winnerTeam ?? slot;
+  }
+
+  const loserMatch = slot.match(/^Loser Match (\d+)$/);
+  if (loserMatch) {
+    return projectedMatches.get(Number(loserMatch[1]))?.loserTeam ?? slot;
+  }
+
+  return resolveSlot(slot, groups, thirdPlaceRanking, combination);
+}
+
+function preferParsedTeam(parsedTeam: string, slot: string, resolvedTeam: string): string {
+  return parsedTeam && parsedTeam !== slot ? parsedTeam : resolvedTeam;
+}
+
+function resolveResult(
+  match: KnockoutMatch,
+  resolvedHomeTeam: string,
+  resolvedAwayTeam: string
+): Pick<KnockoutMatch, "played" | "winnerTeam" | "loserTeam"> {
+  if (!match.played) {
+    return {
+      played: match.played,
+      winnerTeam: match.winnerTeam,
+      loserTeam: match.loserTeam
+    };
+  }
+
+  if (match.winnerTeam) {
+    return {
+      played: match.played,
+      winnerTeam: match.winnerTeam,
+      loserTeam: match.loserTeam
+    };
+  }
+
+  if (match.homeScore === undefined || match.awayScore === undefined || match.homeScore === match.awayScore) {
+    return {
+      played: match.played,
+      winnerTeam: undefined,
+      loserTeam: undefined
+    };
+  }
+
+  const homeWon = match.homeScore > match.awayScore;
+  return {
+    played: match.played,
+    winnerTeam: homeWon ? resolvedHomeTeam : resolvedAwayTeam,
+    loserTeam: homeWon ? resolvedAwayTeam : resolvedHomeTeam
+  };
 }
 
 function slotToCombinationColumn(slot: string): string {

@@ -363,6 +363,36 @@ describe("Wikipedia parsers", () => {
     });
   });
 
+  it("extracts completed knockout scores and winners from football boxes", () => {
+    const matches = parseRoundOf32(
+      doc(`
+        <h2>Round of 32</h2>
+        <div class="footballbox">
+          <span class="fdate">June 28, 2026</span>
+          <span class="ftime">12:00 p.m. UTC−7</span>
+          <table class="fevent">
+            <tr><td class="fhome">South Africa</td><td class="fscore">0–1</td><td class="faway">Canada</td></tr>
+          </table>
+          <span class="flocation">SoFi Stadium, Inglewood</span>
+        </div>
+      `)
+    );
+    const match73 = matches.find((match) => match.matchNumber === 73);
+
+    expect(match73).toMatchObject({
+      date: "June 28, 2026",
+      time: "12:00 p.m. UTC−7",
+      kickoffAt: "2026-06-28T19:00:00.000Z",
+      resolvedHomeTeam: "South Africa",
+      resolvedAwayTeam: "Canada",
+      homeScore: 0,
+      awayScore: 1,
+      played: true,
+      winnerTeam: "Canada",
+      loserTeam: "South Africa"
+    });
+  });
+
   it("extracts final and third-place metadata from football boxes", () => {
     const matches = parseLaterRounds(
       doc(`
