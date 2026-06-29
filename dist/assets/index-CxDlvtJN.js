@@ -123,7 +123,7 @@
       </div>
       ${r?`<p>${d(r)}</p>`:""}
     </article>
-  `}function fe(e){return e.replace(/\s*(?:referee|officials?)\b.*$/i,"").trim()}function pe(e,n){const t=an(e),r=n[e]??"unqualified";return`${t?`<span class="team-flag bracket-team-${r}" aria-hidden="true">${t}</span>`:""}<span class="bracket-team-${r}">${d(e)}</span>`}function _(e,n,t){const r=n==="home"?e.resolvedHomeTeam:e.resolvedAwayTeam,o=n==="home"?e.homeScore:e.awayScore;return`
+  `}function fe(e){return e.replace(/\s*(?:attendance|referee|officials?)\b.*$/i,"").trim()}function pe(e,n){const t=an(e),r=n[e]??"unqualified";return`${t?`<span class="team-flag bracket-team-${r}" aria-hidden="true">${t}</span>`:""}<span class="bracket-team-${r}">${d(e)}</span>`}function _(e,n,t){const r=n==="home"?e.resolvedHomeTeam:e.resolvedAwayTeam,o=n==="home"?e.homeScore:e.awayScore;return`
     <strong class="match-team${e.winnerTeam===r?" match-team-winner":""}">
       <span class="match-team-name">${pe(r,t)}</span>
       ${e.played?`<span class="match-score">${o??"-"}</span>`:""}

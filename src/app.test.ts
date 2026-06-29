@@ -61,6 +61,14 @@ describe("schedule match rendering", () => {
     expect(document.querySelector(".schedule-versus")?.textContent?.trim()).toBe("vs");
     expect(document.querySelectorAll(".schedule-scoreline .match-score")).toHaveLength(0);
   });
+
+  it("removes attendance metadata from displayed venue text", () => {
+    const document = doc(renderScheduleMatch(match({
+      venue: "SoFi Stadium, InglewoodAttendance: 69,237"
+    }), {}));
+
+    expect(document.querySelector(".schedule-match > p")?.textContent).toBe("SoFi Stadium, Inglewood");
+  });
 });
 
 function match(overrides: Partial<KnockoutMatch>): KnockoutMatch {

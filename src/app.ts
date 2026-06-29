@@ -346,7 +346,7 @@ export function renderScheduleMatch(match: KnockoutMatch, qualificationStatuses:
 }
 
 function bracketVenueText(venue: string): string {
-  return venue.replace(/\s*(?:referee|officials?)\b.*$/i, "").trim();
+  return venue.replace(/\s*(?:attendance|referee|officials?)\b.*$/i, "").trim();
 }
 
 function renderBracketTeamName(teamName: string, qualificationStatuses: Record<string, QualificationStatus>): string {
