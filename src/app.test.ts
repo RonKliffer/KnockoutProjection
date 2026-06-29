@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { JSDOM } from "jsdom";
 import { parseGroupStandings } from "./parse";
-import { resolveThirdPlaceRanking } from "./app";
+import { renderScheduleMatch, resolveThirdPlaceRanking } from "./app";
+import type { KnockoutMatch } from "./types";
 
 function doc(html: string): Document {
   return new JSDOM(html).window.document;
@@ -38,3 +39,42 @@ describe("app data loading helpers", () => {
     expect(ranking[8]).toMatchObject({ group: "I", qualified: false });
   });
 });
+
+describe("schedule match rendering", () => {
+  it("centers completed scores around the full-time label", () => {
+    const document = doc(renderScheduleMatch(match({
+      homeScore: 0,
+      awayScore: 1,
+      played: true,
+      winnerTeam: "Canada"
+    }), {}));
+
+    expect(document.querySelector(".schedule-team-home")?.textContent).toContain("South Africa");
+    expect(document.querySelector(".schedule-scoreline")?.textContent?.replace(/\s+/g, " ").trim()).toBe("0 FT 1");
+    expect(document.querySelector(".schedule-team-away")?.textContent).toContain("Canada");
+    expect(document.querySelectorAll(".schedule-scoreline .match-score")).toHaveLength(2);
+  });
+
+  it("keeps upcoming matches as team versus team without score pills", () => {
+    const document = doc(renderScheduleMatch(match({ played: false }), {}));
+
+    expect(document.querySelector(".schedule-versus")?.textContent?.trim()).toBe("vs");
+    expect(document.querySelectorAll(".schedule-scoreline .match-score")).toHaveLength(0);
+  });
+});
+
+function match(overrides: Partial<KnockoutMatch>): KnockoutMatch {
+  return {
+    matchNumber: 73,
+    round: "Round of 32",
+    date: "June 28, 2026",
+    time: "12:00 p.m. UTC−7",
+    kickoffAt: "2026-06-28T19:00:00.000Z",
+    venue: "SoFi Stadium, Inglewood",
+    homeSlot: "Runner-up Group A",
+    awaySlot: "Runner-up Group B",
+    resolvedHomeTeam: "South Africa",
+    resolvedAwayTeam: "Canada",
+    ...overrides
+  };
+}

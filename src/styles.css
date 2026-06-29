@@ -307,6 +307,10 @@ h1 {
   background: #0f5a45;
 }
 
+.match-score-winner {
+  background: #0f5a45;
+}
+
 .bracket-team-placed,
 .bracket-team-qualified,
 .bracket-team-unqualified {
@@ -401,28 +405,35 @@ h1 {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 }
 
-.schedule-teams strong,
-.schedule-teams .match-team {
+.schedule-team {
   align-items: center;
   display: flex;
   font-size: 0.82rem;
   gap: 6px;
-  justify-content: space-between;
   line-height: 1.15;
   min-width: 0;
 }
 
-.schedule-teams .match-team-name,
-.schedule-teams strong .match-team-name span:last-child {
+.schedule-team span:last-child {
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
-.schedule-teams strong:last-child {
+.schedule-team-away {
+  justify-content: flex-end;
   text-align: right;
 }
 
-.schedule-teams > span {
+.schedule-scoreline {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  min-width: max-content;
+}
+
+.schedule-result-label,
+.schedule-versus {
   color: #747c79;
   font-size: 0.68rem;
   font-weight: 800;
