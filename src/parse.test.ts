@@ -393,6 +393,168 @@ describe("Wikipedia parsers", () => {
     });
   });
 
+  it("keeps multiple round-of-32 football boxes attached to their explicit match numbers", () => {
+    const matches = parseRoundOf32(
+      doc(`
+        <h2>Round of 32</h2>
+        <div class="footballbox">
+          <span class="fdate">June 28, 2026</span>
+          <span class="ftime">12:00 p.m. UTC−7</span>
+          <table class="fevent">
+            <tr><td class="fhome">South Africa</td><td class="fscore">0–1</td><td class="faway">Canada</td></tr>
+          </table>
+          <span class="flocation">SoFi Stadium, Inglewood</span>
+        </div>
+        <div class="footballbox">
+          <span class="fdate">June 29, 2026</span>
+          <span class="ftime">12:00 p.m. UTC−5</span>
+          <table class="fevent">
+            <tr><td class="fhome">Winner Group E</td><td class="fscore">Match 74</td><td class="faway">3rd Group A/B/C/D/F</td></tr>
+          </table>
+          <span class="flocation">NRG Stadium, Houston</span>
+        </div>
+        <div class="footballbox">
+          <span class="fdate">June 29, 2026</span>
+          <span class="ftime">3:00 p.m. UTC−4</span>
+          <table class="fevent">
+            <tr><td class="fhome">Winner Group F</td><td class="fscore">Match 75</td><td class="faway">Runner-up Group C</td></tr>
+          </table>
+          <span class="flocation">Mercedes-Benz Stadium, Atlanta</span>
+        </div>
+        <div class="footballbox">
+          <span class="fdate">June 29, 2026</span>
+          <span class="ftime">5:00 p.m. UTC−5</span>
+          <table class="fevent">
+            <tr><td class="fhome">Winner Group C</td><td class="fscore">Match 76</td><td class="faway">Runner-up Group F</td></tr>
+          </table>
+          <span class="flocation">AT&T Stadium, Arlington</span>
+        </div>
+      `)
+    );
+
+    expect(matches.slice(0, 4).map((match) => match.matchNumber)).toEqual([73, 74, 75, 76]);
+    expect(matches.find((match) => match.matchNumber === 73)).toMatchObject({
+      resolvedHomeTeam: "South Africa",
+      resolvedAwayTeam: "Canada",
+      played: true,
+      winnerTeam: "Canada"
+    });
+    expect(matches.find((match) => match.matchNumber === 74)).toMatchObject({
+      resolvedHomeTeam: "Winner Group E",
+      resolvedAwayTeam: "3rd Group A/B/C/D/F",
+      kickoffAt: "2026-06-29T17:00:00.000Z",
+      played: false
+    });
+    expect(matches.find((match) => match.matchNumber === 75)).toMatchObject({
+      resolvedHomeTeam: "Winner Group F",
+      resolvedAwayTeam: "Runner-up Group C",
+      kickoffAt: "2026-06-29T19:00:00.000Z",
+      played: false
+    });
+    expect(matches.find((match) => match.matchNumber === 76)).toMatchObject({
+      resolvedHomeTeam: "Winner Group C",
+      resolvedAwayTeam: "Runner-up Group F",
+      kickoffAt: "2026-06-29T22:00:00.000Z",
+      played: false
+    });
+  });
+
+  it("uses fixture text rather than heading feeder slots as the knockout match number", () => {
+    const matches = parseLaterRounds(
+      doc(`
+        <h2>Round of 16</h2>
+        <h3>Canada vs Winner Match 75</h3>
+        <div class="footballbox">
+          <span class="fdate">July 4, 2026</span>
+          <span class="ftime">12:00 p.m. UTC−7</span>
+          <table class="fevent">
+            <tr><td class="fhome">Canada</td><td class="fscore">Match 90</td><td class="faway">Winner Match 75</td></tr>
+          </table>
+          <span class="flocation">Levi's Stadium, Santa Clara</span>
+        </div>
+      `)
+    );
+
+    expect(matches.find((match) => match.matchNumber === 90)).toMatchObject({
+      resolvedHomeTeam: "Canada",
+      resolvedAwayTeam: "Winner Match 75",
+      kickoffAt: "2026-07-04T19:00:00.000Z",
+      venue: "Levi's Stadium, Santa Clara"
+    });
+  });
+
+  it("infers completed round-of-32 match numbers from later-round advanced teams", () => {
+    const matches = parseRoundOf32(
+      doc(`
+        <h2>Round of 32</h2>
+        <div class="footballbox">
+          <span class="fdate">June 28, 2026</span>
+          <span class="ftime">12:00 p.m. UTC−7</span>
+          <table class="fevent">
+            <tr><td class="fhome">South Africa</td><td class="fscore">0–1</td><td class="faway">Canada</td></tr>
+          </table>
+          <span class="flocation">SoFi Stadium, Inglewood</span>
+        </div>
+        <div class="footballbox">
+          <span class="fdate">June 29, 2026</span>
+          <span class="ftime">12:00 p.m. UTC−5</span>
+          <table class="fevent">
+            <tr><td class="fhome">Brazil</td><td class="fscore">2–1</td><td class="faway">Japan</td></tr>
+          </table>
+          <span class="flocation">NRG Stadium, Houston</span>
+        </div>
+        <div class="footballbox">
+          <span class="fdate">June 29, 2026</span>
+          <span class="ftime">4:30 p.m. UTC−4</span>
+          <table class="fevent">
+            <tr><td class="fhome">Germany</td><td class="fscore">Match 74</td><td class="faway">Paraguay</td></tr>
+          </table>
+          <span class="flocation">Gillette Stadium, Foxborough</span>
+        </div>
+        <h2>Round of 16</h2>
+        <div class="footballbox">
+          <span class="fdate">July 4, 2026</span>
+          <span class="ftime">12:00 p.m. UTC−5</span>
+          <table class="fevent">
+            <tr><td class="fhome">Canada</td><td class="fscore">Match 90</td><td class="faway">Winner Match 75</td></tr>
+          </table>
+          <span class="flocation">NRG Stadium, Houston</span>
+        </div>
+        <div class="footballbox">
+          <span class="fdate">July 5, 2026</span>
+          <span class="ftime">4:00 p.m. UTC−4</span>
+          <table class="fevent">
+            <tr><td class="fhome">Brazil</td><td class="fscore">Match 91</td><td class="faway">Winner Match 78</td></tr>
+          </table>
+          <span class="flocation">MetLife Stadium, East Rutherford</span>
+        </div>
+      `)
+    );
+
+    expect(matches.find((match) => match.matchNumber === 73)).toMatchObject({
+      resolvedHomeTeam: "South Africa",
+      resolvedAwayTeam: "Canada",
+      homeScore: 0,
+      awayScore: 1,
+      played: true,
+      winnerTeam: "Canada"
+    });
+    expect(matches.find((match) => match.matchNumber === 76)).toMatchObject({
+      resolvedHomeTeam: "Brazil",
+      resolvedAwayTeam: "Japan",
+      homeScore: 2,
+      awayScore: 1,
+      played: true,
+      winnerTeam: "Brazil",
+      loserTeam: "Japan"
+    });
+    expect(matches.find((match) => match.matchNumber === 74)).toMatchObject({
+      resolvedHomeTeam: "Germany",
+      resolvedAwayTeam: "Paraguay",
+      played: false
+    });
+  });
+
   it("extracts final and third-place metadata from football boxes", () => {
     const matches = parseLaterRounds(
       doc(`

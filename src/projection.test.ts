@@ -115,6 +115,54 @@ describe("projection", () => {
     });
   });
 
+  it("fills later-round slots from explicit completed round-of-32 match numbers", () => {
+    const projection = buildProjection(
+      groups,
+      thirdPlaceRanking,
+      combinations,
+      [
+        {
+          matchNumber: 74,
+          round: "Round of 32",
+          date: "",
+          time: "",
+          venue: "",
+          homeSlot: "Winner Group E",
+          awaySlot: "3rd Group A/B/C/D/F",
+          resolvedHomeTeam: "E1",
+          resolvedAwayTeam: "E3",
+          homeScore: 2,
+          awayScore: 0,
+          played: true,
+          winnerTeam: "E1",
+          loserTeam: "E3"
+        },
+        {
+          matchNumber: 77,
+          round: "Round of 32",
+          date: "",
+          time: "",
+          venue: "",
+          homeSlot: "Winner Group I",
+          awaySlot: "3rd Group C/D/F/G/H",
+          resolvedHomeTeam: "I1",
+          resolvedAwayTeam: "F3",
+          homeScore: 1,
+          awayScore: 3,
+          played: true,
+          winnerTeam: "F3",
+          loserTeam: "I1"
+        }
+      ]
+    );
+    const match89 = projection.laterRounds.find((match) => match.matchNumber === 89);
+
+    expect(match89).toMatchObject({
+      resolvedHomeTeam: "E1",
+      resolvedAwayTeam: "F3"
+    });
+  });
+
   it("fills the third-place match from semifinal losers", () => {
     const projection = buildProjection(groups, thirdPlaceRanking, combinations, [], [
       knockoutMatch({

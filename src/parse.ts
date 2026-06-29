@@ -224,7 +224,7 @@ export function parseRoundOf32(document: Document): KnockoutMatch[] {
     return fallbackRoundOf32(metadata);
   }
 
-  for (const [matchNumber, meta] of parseRoundOf32FootballBoxMetadata(section)) {
+  for (const [matchNumber, meta] of parseRoundOf32FootballBoxMetadata(section, metadata)) {
     metadata.set(matchNumber, meta);
   }
 
@@ -422,7 +422,7 @@ function parseKnockoutMetadata(document: Document): Map<number, MatchMeta> {
   const metadata = new Map<number, MatchMeta>();
 
   for (const meta of Array.from(document.querySelectorAll(".footballbox"))
-    .map(parseFootballBoxMeta)
+    .map((box) => parseFootballBoxMeta(box, nearbyFixtureText(box)))
     .filter((meta): meta is MatchMeta & { matchNumber: number } => Boolean(meta.matchNumber))) {
     metadata.set(meta.matchNumber, meta);
   }
@@ -439,16 +439,23 @@ function parseKnockoutMetadata(document: Document): Map<number, MatchMeta> {
   return metadata;
 }
 
-function parseRoundOf32FootballBoxMetadata(section: Element): Map<number, MatchMeta> {
+function parseRoundOf32FootballBoxMetadata(section: Element, knockoutMetadata: Map<number, MatchMeta>): Map<number, MatchMeta> {
   const metadata = new Map<number, MatchMeta>();
   let current = section.nextElementSibling;
   let boxIndex = 0;
+  let fixtureContext = "";
+  const winnerMatchNumbers = roundOf32MatchNumbersByAdvancedTeam(knockoutMetadata);
 
   while (current && !/^H2$/i.test(current.tagName)) {
+    if (/^H3$/i.test(current.tagName) || current.matches(".mw-heading")) {
+      fixtureContext = text(current);
+    }
+
     if (current.matches(".footballbox")) {
-      const meta = parseFootballBoxMeta(current);
+      const meta = parseFootballBoxMeta(current, fixtureContext);
       const fallbackMatchNumber = ROUND_OF_32_SCHEDULE[boxIndex]?.[0];
-      const matchNumber = meta.matchNumber ?? fallbackMatchNumber;
+      const inferredMatchNumber = meta.winnerTeam ? winnerMatchNumbers.get(meta.winnerTeam) : undefined;
+      const matchNumber = meta.matchNumber ?? inferredMatchNumber ?? fallbackMatchNumber;
 
       if (matchNumber) {
         metadata.set(matchNumber, { ...meta, matchNumber });
@@ -463,7 +470,38 @@ function parseRoundOf32FootballBoxMetadata(section: Element): Map<number, MatchM
   return metadata;
 }
 
-function parseFootballBoxMeta(box: Element): MatchMeta {
+function roundOf32MatchNumbersByAdvancedTeam(knockoutMetadata: Map<number, MatchMeta>): Map<string, number> {
+  const matchNumbers = new Map<string, number>();
+
+  for (const [laterMatchNumber, , homeSlot, awaySlot] of LATER_ROUNDS) {
+    const meta = knockoutMetadata.get(laterMatchNumber);
+    if (!meta) {
+      continue;
+    }
+
+    addAdvancedTeamMatchNumber(matchNumbers, meta.homeTeam, homeSlot);
+    addAdvancedTeamMatchNumber(matchNumbers, meta.awayTeam, awaySlot);
+  }
+
+  return matchNumbers;
+}
+
+function addAdvancedTeamMatchNumber(matchNumbers: Map<string, number>, team: string | undefined, slot: string): void {
+  if (!team || isPlaceholderKnockoutTeam(team)) {
+    return;
+  }
+
+  const roundOf32MatchNumber = Number(slot.match(/^Winner Match (\d+)$/)?.[1]);
+  if (roundOf32MatchNumber && ROUND_OF_32_SCHEDULE.some(([matchNumber]) => matchNumber === roundOf32MatchNumber)) {
+    matchNumbers.set(team, roundOf32MatchNumber);
+  }
+}
+
+function isPlaceholderKnockoutTeam(team: string): boolean {
+  return /^(winner|loser|runner-up|runner up|3rd|third place)\b/i.test(team);
+}
+
+function parseFootballBoxMeta(box: Element, fixtureContext = ""): MatchMeta {
   const date = text(box.querySelector(".fdate") ?? box).replace(/\s+\(.*\)$/, "");
   const time = text(box.querySelector(".ftime") ?? box);
   const homeCell = box.querySelector(".fhome");
@@ -478,7 +516,7 @@ function parseFootballBoxMeta(box: Element): MatchMeta {
   const loserTeam = winnerTeam === homeTeam ? awayTeam : winnerTeam === awayTeam ? homeTeam : undefined;
 
   return {
-    matchNumber: Number((scoreText.match(/Match\s+(\d+)/i) ?? text(box).match(/Match\s+(\d+)/i))?.[1]) || undefined,
+    matchNumber: extractFootballBoxMatchNumber(box, fixtureContext),
     date,
     time,
     kickoffAt: parseKickoffAt(date, time),
@@ -534,6 +572,34 @@ function inferMatchNumber(homeSlot: string, awaySlot: string): number | undefine
 function extractFixtureMatchNumber(heading: Element, details: string): number | undefined {
   const headingNumbers = new Set(matchNumbers(text(heading)));
   return matchNumbers(details).find((number) => !headingNumbers.has(number)) ?? matchNumbers(details)[0];
+}
+
+function extractFootballBoxMatchNumber(box: Element, fixtureContext: string): number | undefined {
+  const scoreNumbers = matchNumbers(text(box.querySelector(".fscore") ?? box));
+  if (scoreNumbers.length) {
+    return scoreNumbers[0];
+  }
+
+  const boxNumbers = matchNumbers(text(box));
+  if (!boxNumbers.length) {
+    return undefined;
+  }
+
+  const contextNumbers = new Set(matchNumbers(fixtureContext));
+  return boxNumbers.find((number) => !contextNumbers.has(number)) ?? boxNumbers[0];
+}
+
+function nearbyFixtureText(element: Element): string {
+  let current = element.previousElementSibling;
+  while (current) {
+    if (/^H[23]$/i.test(current.tagName) || current.matches(".mw-heading")) {
+      return text(current);
+    }
+
+    current = current.previousElementSibling;
+  }
+
+  return "";
 }
 
 function matchNumbers(value: string): number[] {
