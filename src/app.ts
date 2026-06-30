@@ -362,12 +362,13 @@ function renderMatchTeam(
 ): string {
   const teamName = side === "home" ? match.resolvedHomeTeam : match.resolvedAwayTeam;
   const score = side === "home" ? match.homeScore : match.awayScore;
+  const penaltyScore = side === "home" ? match.homePenaltyScore : match.awayPenaltyScore;
   const winnerClass = match.winnerTeam === teamName ? " match-team-winner" : "";
 
   return `
     <strong class="match-team${winnerClass}">
       <span class="match-team-name">${renderBracketTeamName(teamName, qualificationStatuses)}</span>
-      ${match.played ? `<span class="match-score">${score ?? "-"}</span>` : ""}
+      ${match.played ? renderScore(score, penaltyScore, false) : ""}
     </strong>
   `;
 }
@@ -387,17 +388,22 @@ function renderScheduleTeam(
 }
 
 function renderScheduleScoreline(match: KnockoutMatch): string {
+  const resultLabel = match.extraTime ? "AET" : "FT";
   return `
-    <span class="schedule-scoreline" aria-label="${escapeHtml(`${match.resolvedHomeTeam} ${match.homeScore ?? "-"}, full time, ${match.resolvedAwayTeam} ${match.awayScore ?? "-"}`)}">
-      ${renderScheduleScore(match.homeScore, match.winnerTeam === match.resolvedHomeTeam)}
-      <span class="schedule-result-label">FT</span>
-      ${renderScheduleScore(match.awayScore, match.winnerTeam === match.resolvedAwayTeam)}
+    <span class="schedule-scoreline" aria-label="${escapeHtml(`${match.resolvedHomeTeam} ${scoreText(match.homeScore, match.homePenaltyScore)}, ${resultLabel}, ${match.resolvedAwayTeam} ${scoreText(match.awayScore, match.awayPenaltyScore)}`)}">
+      ${renderScore(match.homeScore, match.homePenaltyScore, match.winnerTeam === match.resolvedHomeTeam)}
+      <span class="schedule-result-label">${resultLabel}</span>
+      ${renderScore(match.awayScore, match.awayPenaltyScore, match.winnerTeam === match.resolvedAwayTeam)}
     </span>
   `;
 }
 
-function renderScheduleScore(score: number | undefined, winner: boolean): string {
-  return `<span class="match-score${winner ? " match-score-winner" : ""}">${score ?? "-"}</span>`;
+function renderScore(score: number | undefined, penaltyScore: number | undefined, winner: boolean): string {
+  return `<span class="match-score${winner ? " match-score-winner" : ""}">${escapeHtml(scoreText(score, penaltyScore))}</span>`;
+}
+
+function scoreText(score: number | undefined, penaltyScore: number | undefined): string {
+  return `${score ?? "-"}${penaltyScore === undefined ? "" : ` (${penaltyScore})`}`;
 }
 
 function updateBracketConnectors(root: HTMLElement): void {

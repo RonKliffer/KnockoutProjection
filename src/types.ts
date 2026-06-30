@@ -77,6 +77,9 @@ export interface KnockoutMatch {
   resolvedAwayTeam: string;
   homeScore?: number;
   awayScore?: number;
+  homePenaltyScore?: number;
+  awayPenaltyScore?: number;
+  extraTime?: boolean;
   played?: boolean;
   winnerTeam?: string;
   loserTeam?: string;

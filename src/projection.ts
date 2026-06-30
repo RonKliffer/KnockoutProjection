@@ -116,8 +116,8 @@ function preferParsedTeam(parsedTeam: string, slot: string, resolvedTeam: string
 
 function resolveResult(
   match: KnockoutMatch,
-  resolvedHomeTeam: string,
-  resolvedAwayTeam: string
+  _resolvedHomeTeam: string,
+  _resolvedAwayTeam: string
 ): Pick<KnockoutMatch, "played" | "winnerTeam" | "loserTeam"> {
   if (!match.played) {
     return {
@@ -135,19 +135,10 @@ function resolveResult(
     };
   }
 
-  if (match.homeScore === undefined || match.awayScore === undefined || match.homeScore === match.awayScore) {
-    return {
-      played: match.played,
-      winnerTeam: undefined,
-      loserTeam: undefined
-    };
-  }
-
-  const homeWon = match.homeScore > match.awayScore;
   return {
     played: match.played,
-    winnerTeam: homeWon ? resolvedHomeTeam : resolvedAwayTeam,
-    loserTeam: homeWon ? resolvedAwayTeam : resolvedHomeTeam
+    winnerTeam: undefined,
+    loserTeam: undefined
   };
 }
 

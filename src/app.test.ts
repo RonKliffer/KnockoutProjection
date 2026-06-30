@@ -62,6 +62,23 @@ describe("schedule match rendering", () => {
     expect(document.querySelectorAll(".schedule-scoreline .match-score")).toHaveLength(0);
   });
 
+  it("renders extra-time penalty scores with an AET label", () => {
+    const document = doc(renderScheduleMatch(match({
+      resolvedHomeTeam: "Germany",
+      resolvedAwayTeam: "Paraguay",
+      homeScore: 1,
+      awayScore: 1,
+      homePenaltyScore: 3,
+      awayPenaltyScore: 4,
+      extraTime: true,
+      played: true,
+      winnerTeam: "Paraguay"
+    }), {}));
+
+    expect(document.querySelector(".schedule-scoreline")?.textContent?.replace(/\s+/g, " ").trim()).toBe("1 (3) AET 1 (4)");
+    expect(document.querySelector(".match-score-winner")?.textContent).toBe("1 (4)");
+  });
+
   it("removes attendance metadata from displayed venue text", () => {
     const document = doc(renderScheduleMatch(match({
       venue: "SoFi Stadium, InglewoodAttendance: 69,237"

@@ -59,6 +59,9 @@ interface MatchMeta {
   awayTeam?: string;
   homeScore?: number;
   awayScore?: number;
+  homePenaltyScore?: number;
+  awayPenaltyScore?: number;
+  extraTime?: boolean;
   played?: boolean;
   winnerTeam?: string;
   loserTeam?: string;
@@ -436,7 +439,42 @@ function parseKnockoutMetadata(document: Document): Map<number, MatchMeta> {
     }
   }
 
+  applyWikiAdvancement(metadata);
+
   return metadata;
+}
+
+function applyWikiAdvancement(metadata: Map<number, MatchMeta>): void {
+  for (const [laterMatchNumber, , homeSlot, awaySlot] of LATER_ROUNDS) {
+    const meta = metadata.get(laterMatchNumber);
+    if (!meta) {
+      continue;
+    }
+
+    applyAdvancedTeam(metadata, homeSlot, meta.homeTeam);
+    applyAdvancedTeam(metadata, awaySlot, meta.awayTeam);
+  }
+}
+
+function applyAdvancedTeam(metadata: Map<number, MatchMeta>, slot: string, team: string | undefined): void {
+  const advancedMatch = slot.match(/^(Winner|Loser) Match (\d+)$/);
+  if (!advancedMatch || !team || isPlaceholderKnockoutTeam(team)) {
+    return;
+  }
+
+  const sourceMatchNumber = Number(advancedMatch[2]);
+  const source = metadata.get(sourceMatchNumber);
+  if (!source) {
+    return;
+  }
+
+  const winnerTeam = advancedMatch[1] === "Winner" ? team : source.winnerTeam;
+  const loserTeam = advancedMatch[1] === "Loser" ? team : source.loserTeam;
+  metadata.set(sourceMatchNumber, {
+    ...source,
+    winnerTeam,
+    loserTeam: loserTeam ?? opponentTeam(source, winnerTeam)
+  });
 }
 
 function parseRoundOf32FootballBoxMetadata(section: Element, knockoutMetadata: Map<number, MatchMeta>): Map<number, MatchMeta> {
@@ -444,7 +482,7 @@ function parseRoundOf32FootballBoxMetadata(section: Element, knockoutMetadata: M
   let current = section.nextElementSibling;
   let boxIndex = 0;
   let fixtureContext = "";
-  const winnerMatchNumbers = roundOf32MatchNumbersByAdvancedTeam(knockoutMetadata);
+  const advancedTeams = roundOf32AdvancedTeams(knockoutMetadata);
 
   while (current && !/^H2$/i.test(current.tagName)) {
     if (/^H3$/i.test(current.tagName) || current.matches(".mw-heading")) {
@@ -454,11 +492,11 @@ function parseRoundOf32FootballBoxMetadata(section: Element, knockoutMetadata: M
     if (current.matches(".footballbox")) {
       const meta = parseFootballBoxMeta(current, fixtureContext);
       const fallbackMatchNumber = ROUND_OF_32_SCHEDULE[boxIndex]?.[0];
-      const inferredMatchNumber = meta.winnerTeam ? winnerMatchNumbers.get(meta.winnerTeam) : undefined;
-      const matchNumber = meta.matchNumber ?? inferredMatchNumber ?? fallbackMatchNumber;
+      const advancedTeam = advancedTeamForMatch(meta, advancedTeams);
+      const matchNumber = meta.matchNumber ?? advancedTeam?.matchNumber ?? fallbackMatchNumber;
 
       if (matchNumber) {
-        metadata.set(matchNumber, { ...meta, matchNumber });
+        metadata.set(matchNumber, withWikiAdvancement({ ...meta, matchNumber }, advancedTeam));
       }
 
       boxIndex += 1;
@@ -470,8 +508,8 @@ function parseRoundOf32FootballBoxMetadata(section: Element, knockoutMetadata: M
   return metadata;
 }
 
-function roundOf32MatchNumbersByAdvancedTeam(knockoutMetadata: Map<number, MatchMeta>): Map<string, number> {
-  const matchNumbers = new Map<string, number>();
+function roundOf32AdvancedTeams(knockoutMetadata: Map<number, MatchMeta>): Map<string, { matchNumber: number; result: "winner" | "loser" }> {
+  const teams = new Map<string, { matchNumber: number; result: "winner" | "loser" }>();
 
   for (const [laterMatchNumber, , homeSlot, awaySlot] of LATER_ROUNDS) {
     const meta = knockoutMetadata.get(laterMatchNumber);
@@ -479,22 +517,70 @@ function roundOf32MatchNumbersByAdvancedTeam(knockoutMetadata: Map<number, Match
       continue;
     }
 
-    addAdvancedTeamMatchNumber(matchNumbers, meta.homeTeam, homeSlot);
-    addAdvancedTeamMatchNumber(matchNumbers, meta.awayTeam, awaySlot);
+    addRoundOf32AdvancedTeam(teams, meta.homeTeam, homeSlot);
+    addRoundOf32AdvancedTeam(teams, meta.awayTeam, awaySlot);
   }
 
-  return matchNumbers;
+  return teams;
 }
 
-function addAdvancedTeamMatchNumber(matchNumbers: Map<string, number>, team: string | undefined, slot: string): void {
+function addRoundOf32AdvancedTeam(
+  teams: Map<string, { matchNumber: number; result: "winner" | "loser" }>,
+  team: string | undefined,
+  slot: string
+): void {
   if (!team || isPlaceholderKnockoutTeam(team)) {
     return;
   }
 
-  const roundOf32MatchNumber = Number(slot.match(/^Winner Match (\d+)$/)?.[1]);
+  const advancement = slot.match(/^(Winner|Loser) Match (\d+)$/);
+  const roundOf32MatchNumber = Number(advancement?.[2]);
   if (roundOf32MatchNumber && ROUND_OF_32_SCHEDULE.some(([matchNumber]) => matchNumber === roundOf32MatchNumber)) {
-    matchNumbers.set(team, roundOf32MatchNumber);
+    teams.set(team, { matchNumber: roundOf32MatchNumber, result: advancement?.[1] === "Loser" ? "loser" : "winner" });
   }
+}
+
+function advancedTeamForMatch(
+  meta: MatchMeta,
+  advancedTeams: Map<string, { matchNumber: number; result: "winner" | "loser" }>
+): { team: string; matchNumber: number; result: "winner" | "loser" } | undefined {
+  for (const team of [meta.homeTeam, meta.awayTeam]) {
+    const advanced = team ? advancedTeams.get(team) : undefined;
+    if (team && advanced) {
+      return { team, ...advanced };
+    }
+  }
+
+  return undefined;
+}
+
+function withWikiAdvancement(
+  meta: MatchMeta,
+  advancedTeam: { team: string; result: "winner" | "loser" } | undefined
+): MatchMeta {
+  if (!advancedTeam) {
+    return meta;
+  }
+
+  const winnerTeam = advancedTeam.result === "winner" ? advancedTeam.team : meta.winnerTeam;
+  const loserTeam = advancedTeam.result === "loser" ? advancedTeam.team : meta.loserTeam;
+  return {
+    ...meta,
+    winnerTeam,
+    loserTeam: loserTeam ?? opponentTeam(meta, winnerTeam)
+  };
+}
+
+function opponentTeam(meta: MatchMeta, team: string | undefined): string | undefined {
+  if (team === meta.homeTeam) {
+    return meta.awayTeam;
+  }
+
+  if (team === meta.awayTeam) {
+    return meta.homeTeam;
+  }
+
+  return undefined;
 }
 
 function isPlaceholderKnockoutTeam(team: string): boolean {
@@ -512,7 +598,8 @@ function parseFootballBoxMeta(box: Element, fixtureContext = ""): MatchMeta {
   const score = scoreText.match(/(\d+)\s*[–-]\s*(\d+)/);
   const homeScore = score ? Number(score[1]) : undefined;
   const awayScore = score ? Number(score[2]) : undefined;
-  const winnerTeam = determineKnockoutWinner(homeCell, awayCell, homeTeam, awayTeam, homeScore, awayScore);
+  const penalties = parsePenaltyScore(box);
+  const winnerTeam = determineKnockoutWinner(homeCell, awayCell, homeTeam, awayTeam);
   const loserTeam = winnerTeam === homeTeam ? awayTeam : winnerTeam === awayTeam ? homeTeam : undefined;
 
   return {
@@ -525,9 +612,32 @@ function parseFootballBoxMeta(box: Element, fixtureContext = ""): MatchMeta {
     awayTeam: awayTeam || undefined,
     homeScore,
     awayScore,
+    homePenaltyScore: penalties?.homePenaltyScore,
+    awayPenaltyScore: penalties?.awayPenaltyScore,
+    extraTime: /\ba\.?e\.?t\.?\b/i.test(scoreText),
     played: Boolean(score),
     winnerTeam,
     loserTeam
+  };
+}
+
+function parsePenaltyScore(box: Element): Pick<MatchMeta, "homePenaltyScore" | "awayPenaltyScore"> | undefined {
+  const rows = Array.from(box.querySelectorAll("tr"));
+  const penaltiesHeadingIndex = rows.findIndex((row) => /penalties/i.test(text(row)));
+  const penaltiesRow = penaltiesHeadingIndex >= 0
+    ? rows.slice(penaltiesHeadingIndex + 1).find((row) => row.querySelector(".fhgoal, .fagoal"))
+    : undefined;
+  const scoreCell = penaltiesRow?.querySelector("th");
+  const scoreText = scoreCell ? text(scoreCell) : "";
+  const score = scoreText.match(/(\d+)\s*[–-]\s*(\d+)/);
+
+  if (!score) {
+    return undefined;
+  }
+
+  return {
+    homePenaltyScore: Number(score[1]),
+    awayPenaltyScore: Number(score[2])
   };
 }
 
@@ -649,10 +759,13 @@ function matchMetadataFields(meta: MatchMeta | undefined): Pick<KnockoutMatch, "
 
 function matchResultFields(
   meta: MatchMeta | undefined
-): Pick<KnockoutMatch, "homeScore" | "awayScore" | "played" | "winnerTeam" | "loserTeam"> {
+): Pick<KnockoutMatch, "homeScore" | "awayScore" | "homePenaltyScore" | "awayPenaltyScore" | "extraTime" | "played" | "winnerTeam" | "loserTeam"> {
   return {
     homeScore: meta?.homeScore,
     awayScore: meta?.awayScore,
+    homePenaltyScore: meta?.homePenaltyScore,
+    awayPenaltyScore: meta?.awayPenaltyScore,
+    extraTime: meta?.extraTime,
     played: meta?.played,
     winnerTeam: meta?.winnerTeam,
     loserTeam: meta?.loserTeam
@@ -710,14 +823,8 @@ function determineKnockoutWinner(
   homeCell: Element | null,
   awayCell: Element | null,
   homeTeam: string,
-  awayTeam: string,
-  homeScore: number | undefined,
-  awayScore: number | undefined
+  awayTeam: string
 ): string | undefined {
-  if (homeScore !== undefined && awayScore !== undefined && homeScore !== awayScore) {
-    return homeScore > awayScore ? homeTeam : awayTeam;
-  }
-
   if (isMarkedWinner(homeCell)) {
     return homeTeam || undefined;
   }

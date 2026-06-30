@@ -363,7 +363,7 @@ describe("Wikipedia parsers", () => {
     });
   });
 
-  it("extracts completed knockout scores and winners from football boxes", () => {
+  it("extracts completed knockout scores without inventing winners from scorelines", () => {
     const matches = parseRoundOf32(
       doc(`
         <h2>Round of 32</h2>
@@ -388,8 +388,8 @@ describe("Wikipedia parsers", () => {
       homeScore: 0,
       awayScore: 1,
       played: true,
-      winnerTeam: "Canada",
-      loserTeam: "South Africa"
+      winnerTeam: undefined,
+      loserTeam: undefined
     });
   });
 
@@ -437,7 +437,7 @@ describe("Wikipedia parsers", () => {
       resolvedHomeTeam: "South Africa",
       resolvedAwayTeam: "Canada",
       played: true,
-      winnerTeam: "Canada"
+      winnerTeam: undefined
     });
     expect(matches.find((match) => match.matchNumber === 74)).toMatchObject({
       resolvedHomeTeam: "Winner Group E",
@@ -483,7 +483,7 @@ describe("Wikipedia parsers", () => {
     });
   });
 
-  it("infers completed round-of-32 match numbers from later-round advanced teams", () => {
+  it("infers completed round-of-32 match numbers and winners from later-round advanced teams", () => {
     const matches = parseRoundOf32(
       doc(`
         <h2>Round of 32</h2>
@@ -516,7 +516,7 @@ describe("Wikipedia parsers", () => {
           <span class="fdate">July 4, 2026</span>
           <span class="ftime">12:00 p.m. UTC−5</span>
           <table class="fevent">
-            <tr><td class="fhome">Canada</td><td class="fscore">Match 90</td><td class="faway">Winner Match 75</td></tr>
+            <tr><td class="fhome">Canada</td><td class="fscore">Match 90</td><td class="faway">Winner Match 73</td></tr>
           </table>
           <span class="flocation">NRG Stadium, Houston</span>
         </div>
@@ -552,6 +552,92 @@ describe("Wikipedia parsers", () => {
       resolvedHomeTeam: "Germany",
       resolvedAwayTeam: "Paraguay",
       played: false
+    });
+  });
+
+  it("uses later-round wiki advancement to attach a completed penalty match to the correct round-of-32 slot", () => {
+    const matches = parseRoundOf32(
+      doc(`
+        <h2>Round of 32</h2>
+        <div class="footballbox">
+          <span class="fdate">June 28, 2026</span>
+          <span class="ftime">12:00 p.m. UTC−7</span>
+          <table class="fevent">
+            <tr><td class="fhome">South Africa</td><td class="fscore">0–1</td><td class="faway">Canada</td></tr>
+          </table>
+          <span class="flocation">SoFi Stadium, Inglewood</span>
+        </div>
+        <div class="footballbox">
+          <span class="fdate">June 29, 2026</span>
+          <span class="ftime">12:00 p.m. UTC−5</span>
+          <table class="fevent">
+            <tr><td class="fhome">Brazil</td><td class="fscore">2–1</td><td class="faway">Japan</td></tr>
+          </table>
+          <span class="flocation">NRG Stadium, Houston</span>
+        </div>
+        <div class="footballbox">
+          <span class="fdate">June 29, 2026</span>
+          <span class="ftime">4:30 p.m. UTC−4</span>
+          <table class="fevent">
+            <tr><td class="fhome">Germany</td><td class="fscore">1–1 (a.e.t.)</td><td class="faway">Paraguay</td></tr>
+            <tr><th colspan="3">Penalties</th></tr>
+            <tr class="fgoals"><td class="fhgoal">Havertz Kimmich Musiala</td><th>3–4</th><td class="fagoal">Enciso Almiron Sanabria Gomez</td></tr>
+          </table>
+          <span class="flocation">Gillette Stadium, Foxborough</span>
+        </div>
+        <h2>Round of 16</h2>
+        <div class="footballbox">
+          <span class="fdate">July 4, 2026</span>
+          <span class="ftime">12:00 p.m. UTC−5</span>
+          <table class="fevent">
+            <tr><td class="fhome">Paraguay</td><td class="fscore">Match 89</td><td class="faway">Winner Match 77</td></tr>
+          </table>
+          <span class="flocation">NRG Stadium, Houston</span>
+        </div>
+      `)
+    );
+
+    expect(matches.find((match) => match.matchNumber === 74)).toMatchObject({
+      resolvedHomeTeam: "Germany",
+      resolvedAwayTeam: "Paraguay",
+      homeScore: 1,
+      awayScore: 1,
+      homePenaltyScore: 3,
+      awayPenaltyScore: 4,
+      extraTime: true,
+      played: true,
+      winnerTeam: "Paraguay",
+      loserTeam: "Germany"
+    });
+    expect(matches.find((match) => match.matchNumber === 75)).not.toMatchObject({
+      resolvedHomeTeam: "Germany",
+      resolvedAwayTeam: "Paraguay"
+    });
+  });
+
+  it("does not invent a winner for a tied knockout score without wiki advancement", () => {
+    const matches = parseRoundOf32(
+      doc(`
+        <h2>Round of 32</h2>
+        <div class="footballbox">
+          <span class="fdate">June 28, 2026</span>
+          <span class="ftime">12:00 p.m. UTC−7</span>
+          <table class="fevent">
+            <tr><td class="fhome">Team A</td><td class="fscore">1–1</td><td class="faway">Team B</td></tr>
+          </table>
+          <span class="flocation">SoFi Stadium, Inglewood</span>
+        </div>
+      `)
+    );
+
+    expect(matches.find((match) => match.matchNumber === 73)).toMatchObject({
+      resolvedHomeTeam: "Team A",
+      resolvedAwayTeam: "Team B",
+      homeScore: 1,
+      awayScore: 1,
+      played: true,
+      winnerTeam: undefined,
+      loserTeam: undefined
     });
   });
 

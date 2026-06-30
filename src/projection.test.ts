@@ -88,7 +88,7 @@ describe("projection", () => {
     expect(projection.laterRounds).toHaveLength(16);
   });
 
-  it("fills future winner slots from completed knockout matches", () => {
+  it("does not fill future winner slots from score-only completed knockout matches", () => {
     const projection = buildProjection(
       groups,
       thirdPlaceRanking,
@@ -106,11 +106,11 @@ describe("projection", () => {
     const match90 = projection.laterRounds.find((match) => match.matchNumber === 90);
 
     expect(projection.roundOf32[0]).toMatchObject({
-      winnerTeam: "A2",
-      loserTeam: "B2"
+      winnerTeam: undefined,
+      loserTeam: undefined
     });
     expect(match90).toMatchObject({
-      resolvedHomeTeam: "A2",
+      resolvedHomeTeam: "Winner Match 73",
       resolvedAwayTeam: "Winner Match 75"
     });
   });
@@ -174,7 +174,9 @@ describe("projection", () => {
         resolvedAwayTeam: "Brazil",
         homeScore: 0,
         awayScore: 1,
-        played: true
+        played: true,
+        winnerTeam: "Brazil",
+        loserTeam: "Argentina"
       }),
       knockoutMatch({
         matchNumber: 102,
@@ -185,7 +187,9 @@ describe("projection", () => {
         resolvedAwayTeam: "Spain",
         homeScore: 3,
         awayScore: 2,
-        played: true
+        played: true,
+        winnerTeam: "France",
+        loserTeam: "Spain"
       }),
       knockoutMatch({
         matchNumber: 103,
