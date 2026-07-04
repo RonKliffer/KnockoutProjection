@@ -51,6 +51,7 @@ const LATER_ROUNDS: Array<[number, string, string, string]> = [
 
 interface MatchMeta {
   matchNumber?: number;
+  matchNumberSource?: MatchNumberSource;
   date: string;
   time: string;
   kickoffAt?: string;
@@ -66,6 +67,8 @@ interface MatchMeta {
   winnerTeam?: string;
   loserTeam?: string;
 }
+
+type MatchNumberSource = "explicit" | "advanced" | "fallback";
 
 export function parseHtml(html: string): Document {
   return new DOMParser().parseFromString(html, "text/html");
@@ -439,9 +442,64 @@ function parseKnockoutMetadata(document: Document): Map<number, MatchMeta> {
     }
   }
 
+  applySectionOrderMatchNumbers(document, metadata);
   applyWikiAdvancement(metadata);
 
   return metadata;
+}
+
+function applySectionOrderMatchNumbers(document: Document, metadata: Map<number, MatchMeta>): void {
+  let currentRoundNumbers: number[] = [];
+  let roundBoxIndex = 0;
+
+  for (const element of Array.from(document.body.querySelectorAll("h2, .footballbox"))) {
+    if (/^H2$/i.test(element.tagName)) {
+      currentRoundNumbers = fallbackMatchNumbersForRound(text(element));
+      roundBoxIndex = 0;
+      continue;
+    }
+
+    if (!element.matches(".footballbox")) {
+      continue;
+    }
+
+    const fallbackMatchNumber = currentRoundNumbers[roundBoxIndex];
+    roundBoxIndex += 1;
+
+    if (!fallbackMatchNumber) {
+      continue;
+    }
+
+    const meta = parseFootballBoxMeta(element, nearbyFixtureText(element));
+    const advancedTeam = advancedTeamForMatch(meta, knockoutAdvancedTeams(metadata));
+    const assignment = bestMatchNumberAssignment(meta, advancedTeam, fallbackMatchNumber);
+    addMatchMeta(metadata, assignment, withWikiAdvancementForAssignment({ ...meta, matchNumber: assignment?.matchNumber }, assignment, advancedTeam));
+  }
+}
+
+function fallbackMatchNumbersForRound(round: string): number[] {
+  const normalized = normalizeText(round);
+  if (normalized.includes("round of 16")) {
+    return LATER_ROUNDS.filter(([, laterRound]) => laterRound === "Round of 16").map(([matchNumber]) => matchNumber);
+  }
+
+  if (normalized.includes("quarterfinal") || normalized.includes("quarter-final")) {
+    return LATER_ROUNDS.filter(([, laterRound]) => laterRound === "Quarterfinals").map(([matchNumber]) => matchNumber);
+  }
+
+  if (normalized.includes("semifinal") || normalized.includes("semi-final")) {
+    return LATER_ROUNDS.filter(([, laterRound]) => laterRound === "Semifinals").map(([matchNumber]) => matchNumber);
+  }
+
+  if (normalized.includes("third place") || normalized.includes("third-place")) {
+    return [103];
+  }
+
+  if (normalized.includes("final")) {
+    return [104];
+  }
+
+  return [];
 }
 
 function applyWikiAdvancement(metadata: Map<number, MatchMeta>): void {
@@ -493,11 +551,9 @@ function parseRoundOf32FootballBoxMetadata(section: Element, knockoutMetadata: M
       const meta = parseFootballBoxMeta(current, fixtureContext);
       const fallbackMatchNumber = ROUND_OF_32_SCHEDULE[boxIndex]?.[0];
       const advancedTeam = advancedTeamForMatch(meta, advancedTeams);
-      const matchNumber = meta.matchNumber ?? advancedTeam?.matchNumber ?? fallbackMatchNumber;
+      const assignment = bestMatchNumberAssignment(meta, advancedTeam, fallbackMatchNumber);
 
-      if (matchNumber) {
-        metadata.set(matchNumber, withWikiAdvancement({ ...meta, matchNumber }, advancedTeam));
-      }
+      addMatchMeta(metadata, assignment, withWikiAdvancementForAssignment({ ...meta, matchNumber: assignment?.matchNumber }, assignment, advancedTeam));
 
       boxIndex += 1;
     }
@@ -506,6 +562,68 @@ function parseRoundOf32FootballBoxMetadata(section: Element, knockoutMetadata: M
   }
 
   return metadata;
+}
+
+function bestMatchNumberAssignment(
+  meta: MatchMeta,
+  advancedTeam: { matchNumber: number } | undefined,
+  fallbackMatchNumber: number | undefined
+): { matchNumber: number; source: MatchNumberSource } | undefined {
+  if (meta.matchNumber) {
+    return { matchNumber: meta.matchNumber, source: meta.matchNumberSource ?? "explicit" };
+  }
+
+  if (advancedTeam?.matchNumber) {
+    return { matchNumber: advancedTeam.matchNumber, source: "advanced" };
+  }
+
+  return fallbackMatchNumber ? { matchNumber: fallbackMatchNumber, source: "fallback" } : undefined;
+}
+
+function addMatchMeta(
+  metadata: Map<number, MatchMeta>,
+  assignment: { matchNumber: number; source: MatchNumberSource } | undefined,
+  meta: MatchMeta
+): void {
+  if (!assignment) {
+    return;
+  }
+
+  const existing = metadata.get(assignment.matchNumber);
+  const next = { ...meta, matchNumber: assignment.matchNumber, matchNumberSource: assignment.source };
+  if (!existing || matchMetaRank(next) > matchMetaRank(existing)) {
+    metadata.set(assignment.matchNumber, next);
+  }
+}
+
+function matchMetaRank(meta: MatchMeta): number {
+  return (
+    matchNumberSourceRank(meta.matchNumberSource ?? "fallback") * 10 +
+    (meta.played ? 6 : 0) +
+    (meta.winnerTeam ? 3 : 0) +
+    (meta.homeScore !== undefined && meta.awayScore !== undefined ? 2 : 0) +
+    (hasResolvedTeams(meta) ? 1 : 0)
+  );
+}
+
+function matchNumberSourceRank(source: MatchNumberSource): number {
+  switch (source) {
+    case "explicit":
+      return 3;
+    case "advanced":
+      return 2;
+    case "fallback":
+      return 1;
+  }
+}
+
+function hasResolvedTeams(meta: MatchMeta): boolean {
+  return Boolean(
+    meta.homeTeam &&
+    meta.awayTeam &&
+    !isPlaceholderKnockoutTeam(meta.homeTeam) &&
+    !isPlaceholderKnockoutTeam(meta.awayTeam)
+  );
 }
 
 function roundOf32AdvancedTeams(knockoutMetadata: Map<number, MatchMeta>): Map<string, { matchNumber: number; result: "winner" | "loser" }> {
@@ -524,6 +642,22 @@ function roundOf32AdvancedTeams(knockoutMetadata: Map<number, MatchMeta>): Map<s
   return teams;
 }
 
+function knockoutAdvancedTeams(knockoutMetadata: Map<number, MatchMeta>): Map<string, { matchNumber: number; result: "winner" | "loser" }> {
+  const teams = new Map<string, { matchNumber: number; result: "winner" | "loser" }>();
+
+  for (const [laterMatchNumber, , homeSlot, awaySlot] of LATER_ROUNDS) {
+    const meta = knockoutMetadata.get(laterMatchNumber);
+    if (!meta) {
+      continue;
+    }
+
+    addAdvancedTeam(teams, meta.homeTeam, homeSlot);
+    addAdvancedTeam(teams, meta.awayTeam, awaySlot);
+  }
+
+  return teams;
+}
+
 function addRoundOf32AdvancedTeam(
   teams: Map<string, { matchNumber: number; result: "winner" | "loser" }>,
   team: string | undefined,
@@ -537,6 +671,22 @@ function addRoundOf32AdvancedTeam(
   const roundOf32MatchNumber = Number(advancement?.[2]);
   if (roundOf32MatchNumber && ROUND_OF_32_SCHEDULE.some(([matchNumber]) => matchNumber === roundOf32MatchNumber)) {
     teams.set(team, { matchNumber: roundOf32MatchNumber, result: advancement?.[1] === "Loser" ? "loser" : "winner" });
+  }
+}
+
+function addAdvancedTeam(
+  teams: Map<string, { matchNumber: number; result: "winner" | "loser" }>,
+  team: string | undefined,
+  slot: string
+): void {
+  if (!team || isPlaceholderKnockoutTeam(team)) {
+    return;
+  }
+
+  const advancement = slot.match(/^(Winner|Loser) Match (\d+)$/);
+  const matchNumber = Number(advancement?.[2]);
+  if (matchNumber) {
+    teams.set(team, { matchNumber, result: advancement?.[1] === "Loser" ? "loser" : "winner" });
   }
 }
 
@@ -571,6 +721,14 @@ function withWikiAdvancement(
   };
 }
 
+function withWikiAdvancementForAssignment(
+  meta: MatchMeta,
+  assignment: { matchNumber: number } | undefined,
+  advancedTeam: { team: string; matchNumber: number; result: "winner" | "loser" } | undefined
+): MatchMeta {
+  return assignment?.matchNumber === advancedTeam?.matchNumber ? withWikiAdvancement(meta, advancedTeam) : meta;
+}
+
 function opponentTeam(meta: MatchMeta, team: string | undefined): string | undefined {
   if (team === meta.homeTeam) {
     return meta.awayTeam;
@@ -599,11 +757,13 @@ function parseFootballBoxMeta(box: Element, fixtureContext = ""): MatchMeta {
   const homeScore = score ? Number(score[1]) : undefined;
   const awayScore = score ? Number(score[2]) : undefined;
   const penalties = parsePenaltyScore(box);
-  const winnerTeam = determineKnockoutWinner(homeCell, awayCell, homeTeam, awayTeam);
+  const winnerTeam = score ? determineKnockoutWinner(homeCell, awayCell, homeTeam, awayTeam) : undefined;
   const loserTeam = winnerTeam === homeTeam ? awayTeam : winnerTeam === awayTeam ? homeTeam : undefined;
+  const matchNumber = extractFootballBoxMatchNumber(box, fixtureContext);
 
   return {
-    matchNumber: extractFootballBoxMatchNumber(box, fixtureContext),
+    matchNumber: matchNumber?.matchNumber,
+    matchNumberSource: matchNumber?.source,
     date,
     time,
     kickoffAt: parseKickoffAt(date, time),
@@ -684,10 +844,13 @@ function extractFixtureMatchNumber(heading: Element, details: string): number | 
   return matchNumbers(details).find((number) => !headingNumbers.has(number)) ?? matchNumbers(details)[0];
 }
 
-function extractFootballBoxMatchNumber(box: Element, fixtureContext: string): number | undefined {
+function extractFootballBoxMatchNumber(
+  box: Element,
+  fixtureContext: string
+): { matchNumber: number; source: MatchNumberSource } | undefined {
   const scoreNumbers = matchNumbers(text(box.querySelector(".fscore") ?? box));
   if (scoreNumbers.length) {
-    return scoreNumbers[0];
+    return { matchNumber: scoreNumbers[0], source: "explicit" };
   }
 
   const boxNumbers = matchNumbers(text(box));
@@ -696,7 +859,8 @@ function extractFootballBoxMatchNumber(box: Element, fixtureContext: string): nu
   }
 
   const contextNumbers = new Set(matchNumbers(fixtureContext));
-  return boxNumbers.find((number) => !contextNumbers.has(number)) ?? boxNumbers[0];
+  const matchNumber = boxNumbers.find((number) => !contextNumbers.has(number)) ?? boxNumbers[0];
+  return { matchNumber, source: "explicit" };
 }
 
 function nearbyFixtureText(element: Element): string {
