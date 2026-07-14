@@ -454,7 +454,8 @@ function applySectionOrderMatchNumbers(document: Document, metadata: Map<number,
 
   for (const element of Array.from(document.body.querySelectorAll("h2, .footballbox"))) {
     if (/^H2$/i.test(element.tagName)) {
-      currentRoundNumbers = fallbackMatchNumbersForRound(text(element));
+      const round = text(element);
+      currentRoundNumbers = fallbackMatchNumbersForRound(round);
       roundBoxIndex = 0;
       continue;
     }
@@ -472,7 +473,7 @@ function applySectionOrderMatchNumbers(document: Document, metadata: Map<number,
 
     const meta = parseFootballBoxMeta(element, nearbyFixtureText(element));
     const advancedTeam = advancedTeamForMatch(meta, knockoutAdvancedTeams(metadata));
-    const assignment = bestMatchNumberAssignment(meta, advancedTeam, fallbackMatchNumber);
+    const assignment = bestLaterRoundMatchNumberAssignment(meta, advancedTeam, fallbackMatchNumber, currentRoundNumbers);
     addMatchMeta(metadata, assignment, withWikiAdvancementForAssignment({ ...meta, matchNumber: assignment?.matchNumber }, assignment, advancedTeam));
   }
 }
@@ -578,6 +579,31 @@ function bestMatchNumberAssignment(
   }
 
   return fallbackMatchNumber ? { matchNumber: fallbackMatchNumber, source: "fallback" } : undefined;
+}
+
+function bestLaterRoundMatchNumberAssignment(
+  meta: MatchMeta,
+  advancedTeam: { matchNumber: number } | undefined,
+  fallbackMatchNumber: number | undefined,
+  currentRoundNumbers: number[]
+): { matchNumber: number; source: MatchNumberSource } | undefined {
+  if (meta.matchNumber && (!currentRoundNumbers.length || currentRoundNumbers.includes(meta.matchNumber))) {
+    return { matchNumber: meta.matchNumber, source: meta.matchNumberSource ?? "explicit" };
+  }
+
+  if (advancedTeam?.matchNumber && currentRoundNumbers.includes(advancedTeam.matchNumber)) {
+    return { matchNumber: advancedTeam.matchNumber, source: "advanced" };
+  }
+
+  if (fallbackMatchNumber) {
+    return { matchNumber: fallbackMatchNumber, source: "fallback" };
+  }
+
+  if (meta.matchNumber) {
+    return { matchNumber: meta.matchNumber, source: meta.matchNumberSource ?? "explicit" };
+  }
+
+  return undefined;
 }
 
 function addMatchMeta(

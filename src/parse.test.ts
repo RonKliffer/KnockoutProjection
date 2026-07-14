@@ -770,6 +770,123 @@ describe("Wikipedia parsers", () => {
     });
   });
 
+  it("uses quarterfinal section order when football boxes omit match numbers", () => {
+    const matches = parseLaterRounds(
+      doc(`
+        <h2>Quarterfinals</h2>
+        <div class="footballbox">
+          <span class="fdate">July 9, 2026</span>
+          <span class="ftime">3:00 p.m. UTC−4</span>
+          <table class="fevent">
+            <tr><td class="fhome">France</td><td class="fscore">2–1</td><td class="faway">Morocco</td></tr>
+          </table>
+          <span class="flocation">Gillette Stadium, Foxborough</span>
+        </div>
+        <div class="footballbox">
+          <span class="fdate">July 10, 2026</span>
+          <span class="ftime">6:00 p.m. UTC−4</span>
+          <table class="fevent">
+            <tr><td class="fhome">Spain</td><td class="fscore">1–0</td><td class="faway">Belgium</td></tr>
+          </table>
+          <span class="flocation">Hard Rock Stadium, Miami Gardens</span>
+        </div>
+        <div class="footballbox">
+          <span class="fdate">July 11, 2026</span>
+          <span class="ftime">3:00 p.m. UTC−4</span>
+          <table class="fevent">
+            <tr><td class="fhome">Norway</td><td class="fscore">0–2</td><td class="faway">England</td></tr>
+          </table>
+          <span class="flocation">MetLife Stadium, East Rutherford</span>
+        </div>
+        <div class="footballbox">
+          <span class="fdate">July 11, 2026</span>
+          <span class="ftime">6:00 p.m. UTC−4</span>
+          <table class="fevent">
+            <tr><td class="fhome">Argentina</td><td class="fscore">3–1</td><td class="faway">Switzerland</td></tr>
+          </table>
+          <span class="flocation">Arrowhead Stadium, Kansas City</span>
+        </div>
+      `)
+    );
+
+    expect(matches.find((match) => match.matchNumber === 97)).toMatchObject({
+      resolvedHomeTeam: "France",
+      resolvedAwayTeam: "Morocco",
+      homeScore: 2,
+      awayScore: 1
+    });
+    expect(matches.find((match) => match.matchNumber === 98)).toMatchObject({
+      resolvedHomeTeam: "Spain",
+      resolvedAwayTeam: "Belgium",
+      homeScore: 1,
+      awayScore: 0
+    });
+    expect(matches.find((match) => match.matchNumber === 99)).toMatchObject({
+      resolvedHomeTeam: "Norway",
+      resolvedAwayTeam: "England",
+      homeScore: 0,
+      awayScore: 2
+    });
+    expect(matches.find((match) => match.matchNumber === 100)).toMatchObject({
+      resolvedHomeTeam: "Argentina",
+      resolvedAwayTeam: "Switzerland",
+      homeScore: 3,
+      awayScore: 1
+    });
+  });
+
+  it("does not assign quarterfinal boxes back to their feeder matches", () => {
+    const matches = parseLaterRounds(
+      doc(`
+        <h2>Round of 16</h2>
+        <div class="footballbox">
+          <span class="fdate">July 4, 2026</span>
+          <span class="ftime">12:00 p.m. UTC−7</span>
+          <table class="fevent">
+            <tr><td class="fhome">Canada</td><td class="fscore">Match 89</td><td class="faway">Morocco</td></tr>
+          </table>
+          <span class="flocation">Levi's Stadium, Santa Clara</span>
+        </div>
+        <div class="footballbox">
+          <span class="fdate">July 4, 2026</span>
+          <span class="ftime">3:00 p.m. UTC−4</span>
+          <table class="fevent">
+            <tr><td class="fhome">Paraguay</td><td class="fscore">Match 90</td><td class="faway">France</td></tr>
+          </table>
+          <span class="flocation">Mercedes-Benz Stadium, Atlanta</span>
+        </div>
+        <h2>Quarterfinals</h2>
+        <div class="footballbox">
+          <span class="fdate">July 9, 2026</span>
+          <span class="ftime">3:00 p.m. UTC−4</span>
+          <table class="fevent">
+            <tr><td class="fhome">France</td><td class="fscore">2–1</td><td class="faway">Morocco</td></tr>
+          </table>
+          <span class="flocation">Gillette Stadium, Foxborough</span>
+        </div>
+      `)
+    );
+
+    expect(matches.find((match) => match.matchNumber === 89)).toMatchObject({
+      resolvedHomeTeam: "Canada",
+      resolvedAwayTeam: "Morocco",
+      homeScore: undefined,
+      awayScore: undefined
+    });
+    expect(matches.find((match) => match.matchNumber === 90)).toMatchObject({
+      resolvedHomeTeam: "Paraguay",
+      resolvedAwayTeam: "France",
+      homeScore: undefined,
+      awayScore: undefined
+    });
+    expect(matches.find((match) => match.matchNumber === 97)).toMatchObject({
+      resolvedHomeTeam: "France",
+      resolvedAwayTeam: "Morocco",
+      homeScore: 2,
+      awayScore: 1
+    });
+  });
+
   it("does not invent a winner for a tied knockout score without wiki advancement", () => {
     const matches = parseRoundOf32(
       doc(`
